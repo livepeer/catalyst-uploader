@@ -14,7 +14,7 @@ func (h *FatalToStderrHook) Levels() []logrus.Level {
 
 func (h *FatalToStderrHook) Fire(e *logrus.Entry) error {
 	errMsg, err := logrus.StandardLogger().Formatter.Format(e)
-	if err!=nil {
+	if err != nil {
 		return err
 	}
 	_, err = os.Stderr.Write(errMsg)
