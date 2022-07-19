@@ -28,16 +28,10 @@ func run() int {
 
 	// configure logging
 	log.SetLevel(log.Level(*verbosity))
-	o, _ := os.Stdout.Stat()
 	// route only fatal errors causing non-zero exit code to stderr to allow the calling app to log efficiently
 	var errHook core.FatalToStderrHook
 	log.AddHook(&errHook)
-	// if called from terminal, log to stdout as well
-	logStdout := (o.Mode() & os.ModeCharDevice) == os.ModeCharDevice
 	var logOutputs []io.Writer
-	if logStdout {
-		logOutputs = append(logOutputs, os.Stdout)
-	}
 	if *logPath != "" {
 		lumberjackLogger := &lumberjack.Logger{
 			// Log file abbsolute path, os agnostic
