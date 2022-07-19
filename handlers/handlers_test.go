@@ -1,4 +1,4 @@
-package core
+package handlers
 
 import (
 	"bytes"
@@ -31,6 +31,7 @@ func TestDescribeHandlersJson(t *testing.T) {
 func TestGetHandler(t *testing.T) {
 	assert := assert.New(t)
 	validUris := []string{
+		// todo: uncomment after handlers are implemented
 		//"s3://region_url/bucket/id",
 		//"S3://region_url/bucket/id",
 		//"S3://id:key@region_url/bucket/id",
@@ -64,7 +65,7 @@ func TestUpload(t *testing.T) {
 		defer os.Remove(outFileName)
 		h, _ := AvailableHandlers.Get(outFileName)
 		// write to tmp file
-		resUri, err := h.UploadWithContext(context.Background(), outFileName, bytes.NewReader(rndData))
+		resUri, err := h.Upload(context.Background(), outFileName, bytes.NewReader(rndData))
 		assert.NoError(err)
 		assert.Equal(resUri, outFileName)
 		stat, err := os.Stat(outFileName)

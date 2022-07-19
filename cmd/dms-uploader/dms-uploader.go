@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/livepeer/dms-uploader/core"
+	"github.com/livepeer/dms-uploader/handlers"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
@@ -29,7 +29,7 @@ func run() int {
 	// configure logging
 	log.SetLevel(log.Level(*verbosity))
 	// route only fatal errors causing non-zero exit code to stderr to allow the calling app to log efficiently
-	var errHook core.FatalToStderrHook
+	var errHook handlers.FatalToStderrHook
 	log.AddHook(&errHook)
 	var logOutputs []io.Writer
 	if *logPath != "" {
@@ -46,12 +46,12 @@ func run() int {
 
 	// list enabled handlers and exit
 	if *describe {
-		_, _ = os.Stdout.Write(core.DescribeHandlersJson())
+		_, _ = os.Stdout.Write(handlers.DescribeHandlersJson())
 		return 0
 	}
 
 	if *help {
-		_, _ = fmt.Fprint(os.Stderr, "LivePeer cloud storage upload utility. Receives data through stdout and uploads it to the specified URI.\nUsage:\n")
+		_, _ = fmt.Fprint(os.Stderr, "Livepeer cloud storage upload utility. Receives data through stdout and uploads it to the specified URI.\nUsage:\n")
 		flag.PrintDefaults()
 		return 1
 	}
@@ -60,7 +60,7 @@ func run() int {
 		log.Fatal("Target URI is not specified. See -h for usage.")
 	}
 
-	handler, err := core.AvailableHandlers.Get(*uri)
+	handler, err := handlers.AvailableHandlers.Get(*uri)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,12 +73,12 @@ func run() int {
 	ctx, cancelFn := context.WithTimeout(context.Background(), time.Hour)
 	defer cancelFn()
 
-	resUri, err := handler.UploadWithContext(ctx, *uri, os.Stdin)
+	resUri, err := handler.Upload(ctx, *uri, os.Stdin)
 	if err != nil {
 		log.Fatal(err)
 	}
 	// success, write uploaded file details to stdout
-	outJson, err := json.Marshal(core.ResUri{Uri: resUri})
+	outJson, err := json.Marshal(handlers.ResUri{Uri: resUri})
 	_, err = os.Stdout.Write(outJson)
 	if err != nil {
 		log.Fatal(err)

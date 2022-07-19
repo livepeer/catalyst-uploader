@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/livepeer/dms-uploader/core"
+	"github.com/livepeer/dms-uploader/handlers"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"os/exec"
@@ -33,7 +33,7 @@ func TestFsHandlerE2E(t *testing.T) {
 	assert.NoError(err)
 
 	// check output
-	outJson := core.ResUri{}
+	outJson := handlers.ResUri{}
 	err = json.Unmarshal(stdoutRes, &outJson)
 	assert.NoError(err)
 	assert.Equal(outFileName, outJson.Uri)
