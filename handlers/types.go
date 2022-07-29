@@ -3,11 +3,11 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/livepeer/dms-uploader/drivers"
 	"io"
 	"net/url"
-	"strings"
+	"path"
 )
 
 type StorageHandler interface {
@@ -21,6 +21,7 @@ type StorageHandlers []StorageHandler
 type FileHandler struct{}
 type S3Handler struct{}
 type IpfsHandler struct{}
+
 
 var AvailableHandlers = StorageHandlers{
 	FileHandler{},
@@ -46,16 +47,48 @@ func DescribeHandlersJson() []byte {
 	return bytes
 }
 
-func (handlers StorageHandlers) Get(uriString string) (StorageHandler, error) {
-	uri, err := url.Parse(uriString)
+// ParseOSURL returns the correct OS for a given OS url
+func GetDriverByUrl(input string) (drivers.OSDriver, error) {
+	u, err := url.Parse(input)
 	if err != nil {
 		return nil, err
 	}
-	scheme := strings.ToLower(uri.Scheme)
-	for _, h := range AvailableHandlers {
-		if scheme == h.UriScheme() {
-			return h, nil
+	if u.Scheme == "s3" {
+		pw, ok := u.User.Password()
+		if !ok {
+			return nil, fmt.Errorf("password is required with s3:// OS")
 		}
+		base := path.Base(u.Path)
+		return drivers.NewS3Driver(u.Host, base, u.User.Username(), pw, false)
 	}
-	return nil, errors.New(fmt.Sprintf("Handler not found for scheme: %q", scheme))
+	// custom s3-compatible store
+	if u.Scheme == "s3+http" || u.Scheme == "s3+https" {
+		scheme := "http"
+		if u.Scheme == "s3+https" {
+			scheme = "https"
+		}
+		region := "ignored"
+		base, bucket := path.Split(u.Path)
+		if len(base) > 1 && base[len(base)-1] == '/' {
+			base = base[:len(base)-1]
+			_, region = path.Split(base)
+		}
+		hosturl, err := url.Parse(input)
+		if err != nil {
+			return nil, err
+		}
+		hosturl.User = nil
+		hosturl.Scheme = scheme
+		hosturl.Path = ""
+		pw, ok := u.User.Password()
+		if !ok {
+			return nil, fmt.Errorf("password is required with s3:// OS")
+		}
+		return drivers.NewCustomS3Driver(hosturl.String(), bucket, region, u.User.Username(), pw, false)
+	}
+	if u.Scheme == "gs" {
+		file := u.User.Username()
+		return drivers.NewGoogleDriver(u.Host, file, false)
+	}
+	return nil, fmt.Errorf("unrecognized OS scheme: %s", u.Scheme)
 }

@@ -16,14 +16,12 @@ import (
 
 func run() int {
 	// cmd line args
-	uri := flag.String("path", "", "File upload URI")
+	uri := flag.String("uri", "", "Object storage URI with credentials.")
+	key := flag.String("key", "", "Object storage key (path)")
 	help := flag.Bool("h", false, "Display usage information")
 	describe := flag.Bool("j", false, "Describe supported storage services in JSON format and exit")
 	verbosity := flag.Int("v", 4, "Log verbosity, from 0 to 6: Panic, Fatal, Error, Warn, Info, Debug, Trace")
 	logPath := flag.String("l", "", "Log file path")
-	id := flag.String("id", "", "Storage service login or id")
-	secret := flag.String("secret", "", "Storage service password or secret")
-	param := flag.String("param", "", "Additional storage service argument (e.g. AWS S3 region)")
 	flag.Parse()
 
 	// configure logging
@@ -57,28 +55,29 @@ func run() int {
 	}
 
 	if *uri == "" {
-		log.Fatal("Target URI is not specified. See -h for usage.")
+		log.Fatal("Object storage URI is not specified. See -h for usage.")
 	}
 
-	handler, err := handlers.AvailableHandlers.Get(*uri)
+	if *key == "" {
+		log.Fatal("Object storage key is not specified. See -h for usage.")
+	}
+
+	storageDriver, err := drivers.ParseOSURL(*uri, false)
+	// path is passed along with the key when uploading
+	session := storageDriver.NewSession("")
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	err = handler.NewSession(*id, *secret, *param)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	ctx, cancelFn := context.WithTimeout(context.Background(), time.Hour)
 	defer cancelFn()
 
-	resUri, err := handler.Upload(ctx, *uri, os.Stdin)
+	resKey, err := session.SaveData(ctx, *key, os.Stdin, nil, time.Second*2)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	// success, write uploaded file details to stdout
-	outJson, err := json.Marshal(handlers.ResUri{Uri: resUri})
+	outJson, err := json.Marshal(handlers.ResUri{Uri: resKey})
 	_, err = os.Stdout.Write(outJson)
 	if err != nil {
 		log.Fatal(err)
