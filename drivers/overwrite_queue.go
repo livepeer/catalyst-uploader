@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 const (
@@ -59,7 +57,6 @@ func (oq *OverwriteQueue) StopAfter(pause time.Duration) {
 
 func (oq *OverwriteQueue) workerLoop() {
 	var err error
-	var took time.Duration
 	for {
 		select {
 		case data := <-oq.queue:
@@ -75,10 +72,6 @@ func (oq *OverwriteQueue) workerLoop() {
 				if timeout > oq.maxTimeout {
 					timeout = oq.maxTimeout
 				}
-			}
-			if err != nil {
-				glog.Errorf("Error saving %s name=%s bytes=%d took=%s try=%d err=%q", oq.desc, oq.name,
-					len(data), took, oq.maxRetries, err)
 			}
 
 		case <-oq.quit:

@@ -196,6 +196,14 @@ func (ostore *MemorySession) GetInfo() *OSInfo {
 	return nil
 }
 
+func (ostore *MemoryOS) UriSchemes() []string {
+	return []string{"memory"}
+}
+
+func (ostore *MemoryOS) Description() string {
+	return "Memory driver."
+}
+
 func (ostore *MemorySession) SaveData(ctx context.Context, name string, data io.Reader, meta map[string]string, timeout time.Duration) (string, error) {
 	path, file := path.Split(ostore.getAbsolutePath(name))
 

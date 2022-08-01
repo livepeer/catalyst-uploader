@@ -1,6 +1,7 @@
 package drivers
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
@@ -14,7 +15,7 @@ func TestS3URL(t *testing.T) {
 	assert := assert.New(t)
 	os, err := ParseOSURL("s3://user:xxxxxxxxx%2Bxxxxxxxxx%2Fxxxxxxxx%2Bxxxxxxxxxxxxx@us-west-2/example-bucket", true)
 	assert.Equal(nil, err)
-	s3, iss3 := os.(*s3OS)
+	s3, iss3 := os.(*S3OS)
 	assert.Equal(true, iss3)
 	assert.Equal("user", s3.awsAccessKeyID)
 	assert.Equal("xxxxxxxxx+xxxxxxxxx/xxxxxxxx+xxxxxxxxxxxxx", s3.awsSecretAccessKey)
@@ -38,7 +39,7 @@ func TestFsPath(t *testing.T) {
 func TestCustomS3URL(t *testing.T) {
 	assert := assert.New(t)
 	os, err := ParseOSURL("s3+http://user:password@example.com:9000/bucket-name", true)
-	s3, iss3 := os.(*s3OS)
+	s3, iss3 := os.(*S3OS)
 	assert.Equal(true, iss3)
 	assert.Equal(nil, err)
 	assert.Equal("http://example.com:9000", s3.host)
@@ -51,7 +52,7 @@ func TestCustomS3URL(t *testing.T) {
 func TestCustomS3URLWithRegion(t *testing.T) {
 	assert := assert.New(t)
 	os, err := ParseOSURL("s3+http://user:password@example.com:9000/path/to/region-name/bucket-name", true)
-	s3, iss3 := os.(*s3OS)
+	s3, iss3 := os.(*S3OS)
 	assert.Equal(true, iss3)
 	assert.Equal(nil, err)
 	assert.Equal("http://example.com:9000", s3.host)
@@ -91,10 +92,10 @@ func TestGSURL(t *testing.T) {
 	assert.Equal(nil, err)
 	os, err := ParseOSURL(prepared, true)
 	assert.Equal(nil, err)
-	gs, ok := os.(*gsOS)
+	gs, ok := os.(*GsOS)
 	assert.Equal(true, ok)
-	assert.Equal("https://bucket-name.storage.googleapis.com", gs.s3OS.host)
-	assert.Equal("bucket-name", gs.s3OS.bucket)
+	assert.Equal("https://bucket-name.storage.googleapis.com", gs.S3OS.host)
+	assert.Equal("bucket-name", gs.S3OS.bucket)
 
 	// Also test embedding the thing in the URL itself
 	u = &url.URL{
@@ -104,8 +105,23 @@ func TestGSURL(t *testing.T) {
 	}
 	os, err = ParseOSURL(u.String(), false)
 	assert.Equal(nil, err)
-	gs, ok = os.(*gsOS)
+	gs, ok = os.(*GsOS)
 	assert.Equal(true, ok)
-	assert.Equal("https://bucket-name.storage.googleapis.com", gs.s3OS.host)
-	assert.Equal("bucket-name", gs.s3OS.bucket)
+	assert.Equal("https://bucket-name.storage.googleapis.com", gs.S3OS.host)
+	assert.Equal("bucket-name", gs.S3OS.bucket)
+}
+
+func TestDescribeDriversJson(t *testing.T) {
+	assert := assert.New(t)
+	handlersJson := DescribeDriversJson()
+	var driverDescr struct {
+		Drivers []OSDriverDescr `json:"storage_drivers"`
+	}
+	err := json.Unmarshal(handlersJson, &driverDescr)
+	assert.NoError(err)
+	assert.Equal(len(AvailableDrivers), len(driverDescr.Drivers))
+	for i, h := range AvailableDrivers {
+		assert.Equal(h.Description(), driverDescr.Drivers[i].Description)
+		assert.Equal(h.UriSchemes(), driverDescr.Drivers[i].UriSchemes)
+	}
 }

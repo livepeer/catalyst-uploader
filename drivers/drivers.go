@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,11 +18,11 @@ import (
 )
 
 var ext2mime = map[string]string{
-".ts":  "video/mp2t",
-".mp4": "video/mp4",
+	".ts":  "video/mp2t",
+	".mp4": "video/mp4",
 }
 
-var ErrFormatMime   = fmt.Errorf("unknown file extension")
+var ErrFormatMime = fmt.Errorf("unknown file extension")
 
 // NodeStorage is current node's primary driver
 var NodeStorage OSDriver
@@ -39,6 +40,8 @@ var testMemoryStoragesLock = &sync.Mutex{}
 // OSDriver common interface for Object Storage
 type OSDriver interface {
 	NewSession(path string) OSSession
+	Description() string
+	UriSchemes() []string
 }
 
 // ErrNoNextPage indicates that there is no next page in ListFiles
@@ -55,6 +58,13 @@ type FileInfoReader struct {
 	FileInfo
 	Metadata map[string]string
 	Body     io.ReadCloser
+}
+
+var AvailableDrivers = []OSDriver{
+	&S3OS{},
+	&FSOS{},
+	&GsOS{},
+	&MemoryOS{},
 }
 
 type PageInfo interface {
@@ -121,6 +131,22 @@ type OSSession interface {
 	ListFiles(ctx context.Context, prefix, delim string) (PageInfo, error)
 
 	ReadData(ctx context.Context, name string) (*FileInfoReader, error)
+}
+
+type OSDriverDescr struct {
+	UriSchemes  []string `json:"scheme"`
+	Description string   `json:"desc"`
+}
+
+func DescribeDriversJson() []byte {
+	var descrs []OSDriverDescr
+	for _, h := range AvailableDrivers {
+		descrs = append(descrs, OSDriverDescr{h.UriSchemes(), h.Description()})
+	}
+	bytes, _ := json.Marshal(struct {
+		Handlers []OSDriverDescr `json:"storage_drivers"`
+	}{descrs})
+	return bytes
 }
 
 func TypeByExtension(ext string) (string, error) {

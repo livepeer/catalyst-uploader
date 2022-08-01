@@ -16,8 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -46,7 +44,7 @@ const (
    should be specified. To give to other nodes access to own S3 storage so called 'POST' policy
    is created. This policy is valid for S3_POLICY_EXPIRE_IN_HOURS hours.
 */
-type s3OS struct {
+type S3OS struct {
 	host               string
 	region             string
 	bucket             string
@@ -58,7 +56,7 @@ type s3OS struct {
 }
 
 type s3Session struct {
-	os          *s3OS
+	os          *S3OS
 	host        string
 	bucket      string
 	key         string
@@ -91,8 +89,7 @@ func newS3Session(info *S3OSInfo) OSSession {
 }
 
 func NewS3Driver(region, bucket, accessKey, accessKeySecret string, useFullAPI bool) (OSDriver, error) {
-	glog.Infof("Creating S3 with region %s bucket %s", region, bucket)
-	os := &s3OS{
+	os := &S3OS{
 		host:               s3Host(bucket),
 		region:             region,
 		bucket:             bucket,
@@ -117,8 +114,7 @@ func NewS3Driver(region, bucket, accessKey, accessKeySecret string, useFullAPI b
 
 // NewCustomS3Driver for creating S3-compatible stores other than S3 itself
 func NewCustomS3Driver(host, bucket, region, accessKey, accessKeySecret string, useFullAPI bool) (OSDriver, error) {
-	glog.Infof("using custom s3 with url: %s, bucket %s region %s use full API %v", host, bucket, region, useFullAPI)
-	os := &s3OS{
+	os := &S3OS{
 		host:               host,
 		bucket:             bucket,
 		awsAccessKeyID:     accessKey,
@@ -146,7 +142,7 @@ func NewCustomS3Driver(host, bucket, region, accessKey, accessKeySecret string, 
 	return os, nil
 }
 
-func (os *s3OS) NewSession(path string) OSSession {
+func (os *S3OS) NewSession(path string) OSSession {
 	policy, signature, credential, xAmzDate := createPolicy(os.awsAccessKeyID,
 		os.bucket, os.region, os.awsSecretAccessKey, path)
 	sess := &s3Session{
@@ -186,6 +182,14 @@ func (os *s3Session) IsExternal() bool {
 }
 
 func (os *s3Session) EndSession() {
+}
+
+func (ostore *S3OS) UriSchemes() []string {
+	return []string{"s3", "s3+http", "s3+https"}
+}
+
+func (ostore *S3OS) Description() string {
+	return "AWS S3 or S3 compatible storage."
 }
 
 type s3pageInfo struct {
@@ -303,7 +307,7 @@ func (os *s3Session) ReadData(ctx context.Context, name string) (*FileInfoReader
 
 func (os *s3Session) saveDataPut(ctx context.Context, name string, data io.Reader, meta map[string]string, timeout time.Duration) (string, error) {
 	bucket := aws.String(os.bucket)
-	keyname := aws.String(os.key + "/" + name)
+	keyname := aws.String(path.Join(os.key, name))
 	var metadata map[string]*string
 	if len(meta) > 0 {
 		metadata = make(map[string]*string)

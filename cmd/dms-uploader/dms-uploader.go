@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/livepeer/dms-uploader/handlers"
+	"github.com/livepeer/dms-uploader/core"
+	"github.com/livepeer/dms-uploader/drivers"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
@@ -17,17 +18,21 @@ import (
 func run() int {
 	// cmd line args
 	uri := flag.String("uri", "", "Object storage URI with credentials.")
-	key := flag.String("key", "", "Object storage key (path)")
+	path := flag.String("path", "", "Destination path")
 	help := flag.Bool("h", false, "Display usage information")
 	describe := flag.Bool("j", false, "Describe supported storage services in JSON format and exit")
 	verbosity := flag.Int("v", 4, "Log verbosity, from 0 to 6: Panic, Fatal, Error, Warn, Info, Debug, Trace")
 	logPath := flag.String("l", "", "Log file path")
 	flag.Parse()
 
+	// replace stdout to prevent any lib from writing debug output there
+	stdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+
 	// configure logging
 	log.SetLevel(log.Level(*verbosity))
 	// route only fatal errors causing non-zero exit code to stderr to allow the calling app to log efficiently
-	var errHook handlers.FatalToStderrHook
+	var errHook core.FatalToStderrHook
 	log.AddHook(&errHook)
 	var logOutputs []io.Writer
 	if *logPath != "" {
@@ -44,7 +49,7 @@ func run() int {
 
 	// list enabled handlers and exit
 	if *describe {
-		_, _ = os.Stdout.Write(handlers.DescribeHandlersJson())
+		_, _ = os.Stdout.Write(drivers.DescribeDriversJson())
 		return 0
 	}
 
@@ -58,27 +63,27 @@ func run() int {
 		log.Fatal("Object storage URI is not specified. See -h for usage.")
 	}
 
-	if *key == "" {
-		log.Fatal("Object storage key is not specified. See -h for usage.")
+	if *path == "" {
+		log.Fatal("Object destination path is not specified. See -h for usage.")
 	}
 
-	storageDriver, err := drivers.ParseOSURL(*uri, false)
-	// path is passed along with the key when uploading
+	storageDriver, err := drivers.ParseOSURL(*uri, true)
+	// path is passed along with the path when uploading
 	session := storageDriver.NewSession("")
 	if err != nil {
 		log.Fatal(err)
 	}
-	ctx, cancelFn := context.WithTimeout(context.Background(), time.Hour)
-	defer cancelFn()
-
-	resKey, err := session.SaveData(ctx, *key, os.Stdin, nil, time.Second*2)
+	ctx := context.Background()
+	resKey, err := session.SaveData(ctx, *path, os.Stdin, nil, time.Second*30)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// success, write uploaded file details to stdout
-	outJson, err := json.Marshal(handlers.ResUri{Uri: resKey})
-	_, err = os.Stdout.Write(outJson)
+	outJson, err := json.Marshal(struct {
+		Uri string `json:"uri"`
+	}{Uri: resKey})
+	_, err = stdout.Write(outJson)
 	if err != nil {
 		log.Fatal(err)
 	}

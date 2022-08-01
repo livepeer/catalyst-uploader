@@ -61,6 +61,14 @@ func (ostore *FSOS) GetSession(path string) *FSSession {
 	return nil
 }
 
+func (ostore *FSOS) UriSchemes() []string {
+	return []string{""}
+}
+
+func (ostore *FSOS) Description() string {
+	return "File system driver."
+}
+
 func (ostore *FSSession) OS() OSDriver {
 	return ostore.os
 }
@@ -136,8 +144,8 @@ func (ostore *FSSession) ReadData(ctx context.Context, name string) (*FileInfoRe
 // A name is relative to driver's baseUri.
 func (ostore *FSSession) GetData(name string) []byte {
 	prefix := ""
-	if ostore.os.baseURI!=nil {
-		prefix+=ostore.os.baseURI.String()
+	if ostore.os.baseURI != nil {
+		prefix += ostore.os.baseURI.String()
 	}
 	fullPath := path.Join(prefix, name)
 	file, err := os.Open(fullPath)

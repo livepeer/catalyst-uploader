@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"cloud.google.com/go/storage"
-	"github.com/golang/glog"
 	"google.golang.org/api/option"
 )
 
@@ -34,7 +33,6 @@ func SetCreds(bucket, creds string) {
 	FailSaveBucketName = bucket
 
 	info, err := os.Stat(creds)
-	glog.Infof("bucket %s creds %s is not ex %v is dir %v", bucket, creds, os.IsNotExist(err), info != nil && info.IsDir())
 	if err == nil && !info.IsDir() {
 		t, _ := ioutil.ReadFile(creds)
 		credsJSON = string(t)
@@ -83,7 +81,6 @@ func Save2GS(fileName string, data []byte) (string, error) {
 	// Creates a client.
 	client, err := storage.NewClient(ctx, option.WithCredentialsJSON([]byte(credsJSON)))
 	if err != nil {
-		glog.Errorf("Failed to create client: %v", err)
 		return "", err
 	}
 
@@ -120,14 +117,10 @@ func SavePairData2GS(trusturi string, data1 []byte, untrusturi string, data2 []b
 
 	var wait sync.WaitGroup
 	wait.Add(len(fnames))
-	dlfunc := func(fname string, data []byte) {
+	dlfunc := func(fname string, data []byte) error {
 		defer wait.Done()
-		fu, err := Save2GS(fname, data)
-		if err != nil {
-			glog.Infof("Error saving to GS bucket=%s, err=%v", FailSaveBucketName, err)
-		} else {
-			glog.Infof("Segment name=%s saved to url=%s", fname, fu)
-		}
+		_, err := Save2GS(fname, data)
+		return err
 	}
 	for i, name := range fnames {
 		go dlfunc(name, datas[i])

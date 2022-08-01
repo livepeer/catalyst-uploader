@@ -22,10 +22,10 @@ func TestS3Upload(t *testing.T) {
 	if s3key != "" && s3secret != "" && s3region != "" && s3bucket != "" {
 		rndData := make([]byte, 1024*10)
 		rand.Read(rndData)
-		testKey := uuid.New().String() + ".ts"
+		testKey := "/test/" + uuid.New().String() + ".ts"
 		os, err := ParseOSURL(fmt.Sprintf("s3://%s:%s@%s/%s", s3key, s3secret, s3region, s3bucket), true)
 		assert.NoError(err)
-		session := os.NewSession("test")
+		session := os.NewSession("")
 		uri, err := session.SaveData(context.Background(), testKey, bytes.NewReader(rndData), nil, 10*time.Second)
 		assert.NoError(err)
 		url, _ := url.Parse(uri)

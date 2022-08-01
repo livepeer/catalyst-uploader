@@ -3,12 +3,10 @@ package drivers
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"net/url"
 	"strings"
 	"testing"
-
-	"github.com/golang/glog"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestLocalOS(t *testing.T) {
@@ -26,7 +24,6 @@ func TestLocalOS(t *testing.T) {
 	os := NewMemoryDriver(u)
 	sess := os.NewSession(("sesspath")).(*MemorySession)
 	path, err := sess.SaveData(context.TODO(), "name1/1.ts", strings.NewReader(tempData1), nil, 0)
-	glog.Info(path)
 	fmt.Println(path)
 	assert.Equal("fake.com/url/stream/sesspath/name1/1.ts", path)
 	data := sess.GetData("sesspath/name1/1.ts")

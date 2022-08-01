@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"github.com/stretchr/testify/assert"
 	"net/url"
 	"os"
 	"testing"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestFsOS(t *testing.T) {

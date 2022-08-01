@@ -39,15 +39,15 @@ type (
 		parsedKey *rsa.PrivateKey
 	}
 
-	gsOS struct {
-		s3OS
+	GsOS struct {
+		S3OS
 		gsSigner *gsSigner
 		keyData  []byte
 	}
 
 	gsSession struct {
 		s3Session
-		gos        *gsOS
+		gos        *GsOS
 		client     *storage.Client
 		keyData    []byte
 		useFullAPI bool
@@ -76,9 +76,17 @@ func gsParseKey(key []byte) (*rsa.PrivateKey, error) {
 	return parsed, nil
 }
 
+func (ostore *GsOS) UriSchemes() []string {
+	return []string{"gs"}
+}
+
+func (ostore *GsOS) Description() string {
+	return "Google Cloud Storage"
+}
+
 func NewGoogleDriver(bucket, keyData string, useFullAPI bool) (OSDriver, error) {
-	os := &gsOS{
-		s3OS: s3OS{
+	os := &GsOS{
+		S3OS: S3OS{
 			host:       gsHost(bucket),
 			bucket:     bucket,
 			useFullAPI: useFullAPI,
@@ -101,7 +109,7 @@ func NewGoogleDriver(bucket, keyData string, useFullAPI bool) (OSDriver, error) 
 	return os, nil
 }
 
-func (os *gsOS) NewSession(path string) OSSession {
+func (os *GsOS) NewSession(path string) OSSession {
 	var policy, signature = gsCreatePolicy(os.gsSigner, os.bucket, os.region, path)
 	sess := &s3Session{
 		host:        gsHost(os.bucket),
