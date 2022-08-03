@@ -17,8 +17,9 @@ import (
 
 func run() int {
 	// cmd line args
-	uri := flag.String("uri", "", "Object storage URI with credentials.")
+	uri := flag.String("uri", "", "Object store URI with credentials.")
 	path := flag.String("path", "", "Destination path")
+	timeout := flag.Int("timeout", 10, "Upload timeout in seconds")
 	help := flag.Bool("h", false, "Display usage information")
 	describe := flag.Bool("j", false, "Describe supported storage services in JSON format and exit")
 	verbosity := flag.Int("v", 4, "Log verbosity, from 0 to 6: Panic, Fatal, Error, Warn, Info, Debug, Trace")
@@ -74,16 +75,13 @@ func run() int {
 		log.Fatal(err)
 	}
 	ctx := context.Background()
-	resKey, err := session.SaveData(ctx, *path, os.Stdin, nil, time.Second*30)
+	resKey, err := session.SaveData(ctx, *path, os.Stdin, nil, time.Second*time.Duration(*timeout))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// success, write uploaded file details to stdout
-	outJson, err := json.Marshal(struct {
-		Uri string `json:"uri"`
-	}{Uri: resKey})
-	_, err = stdout.Write(outJson)
+	err = json.NewEncoder(stdout).Encode(map[string]string{"uri": resKey})
 	if err != nil {
 		log.Fatal(err)
 	}

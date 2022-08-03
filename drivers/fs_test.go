@@ -5,10 +5,19 @@ import (
 	"context"
 	"crypto/rand"
 	"github.com/stretchr/testify/assert"
+	"io"
 	"net/url"
 	"os"
 	"testing"
 )
+
+func readFile(session *FSSession, name string) []byte {
+	fileInfoReader, _ := session.ReadData(context.Background(), name)
+	defer fileInfoReader.Body.Close()
+	buf := new(bytes.Buffer)
+	io.Copy(buf, fileInfoReader.Body)
+	return buf.Bytes()
+}
 
 func TestFsOS(t *testing.T) {
 	// create random data
@@ -24,7 +33,7 @@ func TestFsOS(t *testing.T) {
 	assert.NoError(err)
 	defer os.Remove(path)
 	assert.Equal("/tmp/driver-test/name1/1.ts", path)
-	data := sess.GetData("driver-test/name1/1.ts")
+	data := readFile(sess, "driver-test/name1/1.ts")
 	assert.Equal(rndData, data)
 	// check file contents
 	file, _ := os.Open(path)
@@ -44,7 +53,7 @@ func TestFsOS(t *testing.T) {
 	assert.NoError(err)
 	defer os.Remove(path)
 	assert.Equal("/tmp/driver-test/name1/1.ts", path)
-	data = sess.GetData(path)
+	data = readFile(sess, path)
 	assert.Equal(rndData, data)
 	// check file contents
 	file, _ = os.Open(path)

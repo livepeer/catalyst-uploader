@@ -1,9 +1,7 @@
 package drivers
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -124,25 +122,6 @@ func (ostore *FSSession) ListFiles(ctx context.Context, dir, delim string) (Page
 }
 
 func (ostore *FSSession) ReadData(ctx context.Context, name string) (*FileInfoReader, error) {
-	data := ostore.GetData(name)
-	if data == nil {
-		return nil, errors.New("Not found")
-	}
-	size := int64(len(data))
-	res := &FileInfoReader{
-		FileInfo: FileInfo{
-			Name: name,
-			Size: &size,
-		},
-		Body: ioutil.NopCloser(bytes.NewReader(data)),
-	}
-	return res, nil
-}
-
-// GetData returns the contents of the file. It reads entire file into memory.
-//
-// A name is relative to driver's baseUri.
-func (ostore *FSSession) GetData(name string) []byte {
 	prefix := ""
 	if ostore.os.baseURI != nil {
 		prefix += ostore.os.baseURI.String()
@@ -150,14 +129,18 @@ func (ostore *FSSession) GetData(name string) []byte {
 	fullPath := path.Join(prefix, name)
 	file, err := os.Open(fullPath)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	defer file.Close()
-	fileData, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil
+	stat, err := file.Stat()
+	size := stat.Size()
+	res := &FileInfoReader{
+		FileInfo: FileInfo{
+			Name: name,
+			Size: &size,
+		},
+		Body: file,
 	}
-	return fileData
+	return res, nil
 }
 
 func (ostore *FSSession) IsExternal() bool {
