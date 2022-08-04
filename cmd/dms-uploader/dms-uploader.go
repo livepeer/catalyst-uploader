@@ -25,13 +25,13 @@ func run() int {
 	flag.Parse()
 
 	if *help {
-		fmt.Fprintf(flag.CommandLine.Output(), "Livepeer cloud storage upload utility. Receives data through stdout and uploads it to the specified URI.\n" +
-			"\n" +
-			"Usage:\n " +
-			"	%s <store_uri_with_credentials> args\n" +
-			"Example:\n" +
-			"	s3://AWS_KEY:AWS_SECRET@eu-west-1/bucket-name/key_part1/key_part2/key_name.ts\n" +
-			"\nArgs:\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), `Livepeer cloud storage upload utility. Receives data through stdout and uploads it to the specified URI.
+Usage:
+ 	%s <store_uri_with_credentials> args
+Example:
+	s3://AWS_KEY:AWS_SECRET@eu-west-1/bucket-name/key_part1/key_part2/key_name.ts
+Args:
+`, os.Args[0])
 		flag.PrintDefaults()
 		return 1
 	}
