@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 	"sync"
 	"time"
 )
@@ -212,8 +214,19 @@ func ParseOSURL(input string, useFullAPI bool) (OSDriver, error) {
 		if !ok {
 			return nil, fmt.Errorf("password is required with s3:// OS")
 		}
-		base := path.Base(u.Path)
-		return NewS3Driver(u.Host, base, u.User.Username(), pw, useFullAPI)
+		// bucket immediately follows domain name, the rest is key
+		splits := splitNonEmpty(u.Path, '/')
+		if len(splits) == 0 {
+			return nil, errors.New("S3 bucket not found in URL path")
+		}
+		bucket := splits[0]
+		// need to get first sep position, ignoring leading sep
+		sepIndex := strings.Index(u.Path[1:], "/")
+		keyPrefix := ""
+		if sepIndex != -1 {
+			keyPrefix = u.Path[sepIndex+2:]
+		}
+		return NewS3Driver(u.Host, bucket, u.User.Username(), pw, keyPrefix, useFullAPI)
 	}
 	// custom s3-compatible store
 	if u.Scheme == "s3+http" || u.Scheme == "s3+https" {
@@ -282,4 +295,11 @@ func SaveRetried(ctx context.Context, sess OSSession, name string, data []byte, 
 var httpc = &http.Client{
 	Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	Timeout:   1,
+}
+
+func splitNonEmpty(str string, sep rune) []string {
+	splitFn := func(c rune) bool {
+		return c == sep
+	}
+	return strings.FieldsFunc(str, splitFn)
 }

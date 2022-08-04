@@ -48,6 +48,7 @@ type S3OS struct {
 	host               string
 	region             string
 	bucket             string
+	keyPrefix          string
 	awsAccessKeyID     string
 	awsSecretAccessKey string
 	s3svc              *s3.S3
@@ -88,7 +89,7 @@ func newS3Session(info *S3OSInfo) OSSession {
 	return sess
 }
 
-func NewS3Driver(region, bucket, accessKey, accessKeySecret string, useFullAPI bool) (OSDriver, error) {
+func NewS3Driver(region, bucket, accessKey, accessKeySecret string, keyPrefix string, useFullAPI bool) (OSDriver, error) {
 	os := &S3OS{
 		host:               s3Host(bucket),
 		region:             region,
@@ -96,6 +97,7 @@ func NewS3Driver(region, bucket, accessKey, accessKeySecret string, useFullAPI b
 		awsAccessKeyID:     accessKey,
 		awsSecretAccessKey: accessKeySecret,
 		useFullAPI:         useFullAPI,
+		keyPrefix:          keyPrefix,
 	}
 	if os.awsAccessKeyID != "" {
 		var err error
@@ -149,7 +151,7 @@ func (os *S3OS) NewSession(path string) OSSession {
 		os:          os,
 		host:        os.host,
 		bucket:      os.bucket,
-		key:         path,
+		key:         os.keyPrefix + path,
 		policy:      policy,
 		signature:   signature,
 		credential:  credential,
@@ -281,9 +283,14 @@ func (os *s3Session) ReadData(ctx context.Context, name string) (*FileInfoReader
 	if os.s3svc == nil {
 		return nil, fmt.Errorf("Not implemented")
 	}
+	key := name
+	// if name is not specified, assume that this session already created with specific key
+	if key == "" {
+		key = os.key
+	}
 	params := &s3.GetObjectInput{
 		Bucket: aws.String(os.bucket),
-		Key:    aws.String(name),
+		Key:    aws.String(key),
 	}
 	resp, err := os.s3svc.GetObjectWithContext(ctx, params)
 	if err != nil {

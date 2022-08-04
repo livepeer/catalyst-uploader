@@ -35,7 +35,7 @@ func TestFsHandlerE2E(t *testing.T) {
 	defer os.Remove(outFileName)
 
 	// run
-	args := fmt.Sprintf("-uri %s -path %s", "/tmp", "test-fs-upload.dat")
+	args := fmt.Sprintf("/tmp/test-fs-upload.dat")
 	uploader := exec.Command("./dms-uploader", strings.Split(args, " ")...)
 	uploader.Stdin = stdinReader
 	stdoutRes, err := uploader.Output()
@@ -75,7 +75,7 @@ func TestS3HandlerE2E(t *testing.T) {
 	if s3key != "" && s3secret != "" && s3region != "" && s3bucket != "" {
 		// run
 		testKey := "/test/" + uuid.New().String() + ".ts"
-		args := fmt.Sprintf("-uri s3://%s:%s@%s/%s -path %s", s3key, s3secret, s3region, s3bucket, testKey)
+		args := fmt.Sprintf("s3://%s:%s@%s/%s%s", s3key, s3secret, s3region, s3bucket, testKey)
 		uploader := exec.Command("./dms-uploader", strings.Split(args, " ")...)
 		uploader.Stdin = stdinReader
 		stdoutRes, err := uploader.Output()
@@ -92,17 +92,19 @@ func TestS3HandlerE2E(t *testing.T) {
 		// load object and compare contents
 		url, _ := url.Parse(outJson.Uri)
 		// compare key after leading slash
-		assert.Equal(testKey, url.Path[1:])
-		os, err := drivers.ParseOSURL(fmt.Sprintf("s3://%s:%s@%s/%s", s3key, s3secret, s3region, s3bucket), true)
+		assert.Equal(testKey, url.Path)
+		os, err := drivers.ParseOSURL(fmt.Sprintf("s3://%s:%s@%s/%s%s", s3key, s3secret, s3region, s3bucket, testKey), true)
 		assert.NoError(err)
 		session := os.NewSession("")
 		// second argument is object key and passed to API unmodified
-		data, err := session.ReadData(context.Background(), testKey)
+		data, err := session.ReadData(context.Background(), "")
 		assert.NoError(err)
 		assert.Equal(*data.Size, int64(len(rndData)))
 		osBuf := new(bytes.Buffer)
 		osBuf.ReadFrom(data.Body)
 		osData := osBuf.Bytes()
 		assert.Equal(rndData, osData)
+	} else {
+		fmt.Println("No S3 credentials, test skipped")
 	}
 }

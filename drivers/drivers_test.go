@@ -13,7 +13,7 @@ import (
 
 func TestS3URL(t *testing.T) {
 	assert := assert.New(t)
-	os, err := ParseOSURL("s3://user:xxxxxxxxx%2Bxxxxxxxxx%2Fxxxxxxxx%2Bxxxxxxxxxxxxx@us-west-2/example-bucket", true)
+	os, err := ParseOSURL("s3://user:xxxxxxxxx%2Bxxxxxxxxx%2Fxxxxxxxx%2Bxxxxxxxxxxxxx@us-west-2/example-bucket/", true)
 	assert.Equal(nil, err)
 	s3, iss3 := os.(*S3OS)
 	assert.Equal(true, iss3)
@@ -22,6 +22,19 @@ func TestS3URL(t *testing.T) {
 	assert.Equal("https://example-bucket.s3.amazonaws.com", s3.host)
 	assert.Equal("us-west-2", s3.region)
 	assert.Equal("example-bucket", s3.bucket)
+	assert.Equal("", s3.keyPrefix)
+
+	// test full URI
+	os, err = ParseOSURL("s3://user:xxxxxxxxx%2Bxxxxxxxxx%2Fxxxxxxxx%2Bxxxxxxxxxxxxx@us-west-2/example-bucket/key_part1/key_part2/key.ts", true)
+	assert.Equal(nil, err)
+	s3, iss3 = os.(*S3OS)
+	assert.Equal(true, iss3)
+	assert.Equal("user", s3.awsAccessKeyID)
+	assert.Equal("xxxxxxxxx+xxxxxxxxx/xxxxxxxx+xxxxxxxxxxxxx", s3.awsSecretAccessKey)
+	assert.Equal("https://example-bucket.s3.amazonaws.com", s3.host)
+	assert.Equal("us-west-2", s3.region)
+	assert.Equal("example-bucket", s3.bucket)
+	assert.Equal("key_part1/key_part2/key.ts", s3.keyPrefix)
 }
 
 func TestFsPath(t *testing.T) {
