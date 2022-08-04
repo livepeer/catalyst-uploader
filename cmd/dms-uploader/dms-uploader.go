@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/livepeer/dms-uploader/handlers"
+	"github.com/livepeer/dms-uploader/core"
+	"github.com/livepeer/dms-uploader/drivers"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
@@ -16,20 +17,39 @@ import (
 
 func run() int {
 	// cmd line args
-	uri := flag.String("path", "", "File upload URI")
+	timeout := flag.Duration("t", 10*time.Second, "Upload timeout")
 	help := flag.Bool("h", false, "Display usage information")
 	describe := flag.Bool("j", false, "Describe supported storage services in JSON format and exit")
 	verbosity := flag.Int("v", 4, "Log verbosity, from 0 to 6: Panic, Fatal, Error, Warn, Info, Debug, Trace")
 	logPath := flag.String("l", "", "Log file path")
-	id := flag.String("id", "", "Storage service login or id")
-	secret := flag.String("secret", "", "Storage service password or secret")
-	param := flag.String("param", "", "Additional storage service argument (e.g. AWS S3 region)")
 	flag.Parse()
+
+	if *help {
+		fmt.Fprintf(flag.CommandLine.Output(), `Livepeer cloud storage upload utility. Uploads data from standard input to the specified URI.
+Usage:
+ 	%s <store_uri_with_credentials> args
+Example:
+	s3://AWS_KEY:AWS_SECRET@eu-west-1/bucket-name/key_part1/key_part2/key_name.ts
+Args:
+`, os.Args[0])
+		flag.PrintDefaults()
+		return 1
+	}
+
+	if flag.NArg() == 0 {
+		log.Fatal("Destination URI is not specified. See -h for usage.")
+	}
+
+	uri := flag.Arg(0)
+
+	// replace stdout to prevent any lib from writing debug output there
+	stdout := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
 
 	// configure logging
 	log.SetLevel(log.Level(*verbosity))
 	// route only fatal errors causing non-zero exit code to stderr to allow the calling app to log efficiently
-	var errHook handlers.FatalToStderrHook
+	var errHook core.FatalToStderrHook
 	log.AddHook(&errHook)
 	var logOutputs []io.Writer
 	if *logPath != "" {
@@ -46,40 +66,28 @@ func run() int {
 
 	// list enabled handlers and exit
 	if *describe {
-		_, _ = os.Stdout.Write(handlers.DescribeHandlersJson())
+		_, _ = os.Stdout.Write(drivers.DescribeDriversJson())
 		return 0
 	}
 
-	if *help {
-		_, _ = fmt.Fprint(os.Stderr, "Livepeer cloud storage upload utility. Receives data through stdout and uploads it to the specified URI.\nUsage:\n")
-		flag.PrintDefaults()
-		return 1
+	if uri == "" {
+		log.Fatal("Object store URI is not specified. See -h for usage.")
 	}
 
-	if *uri == "" {
-		log.Fatal("Target URI is not specified. See -h for usage.")
+	storageDriver, err := drivers.ParseOSURL(uri, true)
+	// path is passed along with the path when uploading
+	session := storageDriver.NewSession("")
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	handler, err := handlers.AvailableHandlers.Get(*uri)
+	ctx := context.Background()
+	resKey, err := session.SaveData(ctx, "", os.Stdin, nil, *timeout)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = handler.NewSession(*id, *secret, *param)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ctx, cancelFn := context.WithTimeout(context.Background(), time.Hour)
-	defer cancelFn()
-
-	resUri, err := handler.Upload(ctx, *uri, os.Stdin)
-	if err != nil {
-		log.Fatal(err)
-	}
 	// success, write uploaded file details to stdout
-	outJson, err := json.Marshal(handlers.ResUri{Uri: resUri})
-	_, err = os.Stdout.Write(outJson)
+	err = json.NewEncoder(stdout).Encode(map[string]string{"uri": resKey})
 	if err != nil {
 		log.Fatal(err)
 	}
