@@ -25,7 +25,7 @@ func run() int {
 	flag.Parse()
 
 	if *help {
-		fmt.Fprintf(flag.CommandLine.Output(), `Livepeer cloud storage upload utility. Receives data through stdout and uploads it to the specified URI.
+		fmt.Fprintf(flag.CommandLine.Output(), `Livepeer cloud storage upload utility. Uploads data from standard input to the specified URI.
 Usage:
  	%s <store_uri_with_credentials> args
 Example:
