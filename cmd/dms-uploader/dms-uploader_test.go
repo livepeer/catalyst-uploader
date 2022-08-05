@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/livepeer/dms-uploader/drivers"
+	"github.com/livepeer/go-tools/drivers"
 	"github.com/stretchr/testify/assert"
 	"net/url"
 	"os"
