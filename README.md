@@ -13,7 +13,7 @@ Livepeer cloud storage upload utility. Called by Mist to upload video segments. 
 
 # Example usage
 ```
-./dms-uploader s3://AWS_KEY:AWS_SECRET@eu-west-1/video-upload-test/test/fa7cb350-8978-4f7d-b54f-b0b67632fcf2.ts
+./catalyst-uploader s3://AWS_KEY:AWS_SECRET@eu-west-1/video-upload-test/test/fa7cb350-8978-4f7d-b54f-b0b67632fcf2.ts
 ```
 
 # Running tests

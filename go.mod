@@ -1,4 +1,4 @@
-module github.com/livepeer/dms-uploader
+module github.com/livepeer/catalyst-uploader
 
 go 1.17
 

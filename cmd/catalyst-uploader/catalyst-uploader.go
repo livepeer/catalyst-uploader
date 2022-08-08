@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/livepeer/dms-uploader/core"
+	"github.com/livepeer/catalyst-uploader/core"
 	"github.com/livepeer/go-tools/drivers"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"

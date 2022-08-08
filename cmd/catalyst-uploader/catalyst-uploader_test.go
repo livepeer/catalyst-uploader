@@ -18,7 +18,7 @@ import (
 
 func buildUploader(assert *assert.Assertions) {
 	// build app
-	build := exec.Command("go", strings.Split("build dms-uploader.go", " ")...)
+	build := exec.Command("go", strings.Split("build catalyst-uploader.go", " ")...)
 	err := build.Run()
 	assert.NoError(err)
 }
@@ -36,7 +36,7 @@ func TestFsHandlerE2E(t *testing.T) {
 
 	// run
 	args := fmt.Sprintf("/tmp/test-fs-upload.dat")
-	uploader := exec.Command("./dms-uploader", strings.Split(args, " ")...)
+	uploader := exec.Command("./catalyst-uploader", strings.Split(args, " ")...)
 	uploader.Stdin = stdinReader
 	stdoutRes, err := uploader.Output()
 	assert.NoError(err)
@@ -76,7 +76,7 @@ func TestS3HandlerE2E(t *testing.T) {
 		// run
 		testKey := "/test/" + uuid.New().String() + ".ts"
 		args := fmt.Sprintf("s3://%s:%s@%s/%s%s", s3key, s3secret, s3region, s3bucket, testKey)
-		uploader := exec.Command("./dms-uploader", strings.Split(args, " ")...)
+		uploader := exec.Command("./catalyst-uploader", strings.Split(args, " ")...)
 		uploader.Stdin = stdinReader
 		stdoutRes, err := uploader.Output()
 		fmt.Println(string(stdoutRes))
