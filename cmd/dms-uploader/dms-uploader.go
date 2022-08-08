@@ -6,7 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/livepeer/dms-uploader/core"
-	"github.com/livepeer/dms-uploader/drivers"
+	"github.com/livepeer/go-tools/drivers"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
