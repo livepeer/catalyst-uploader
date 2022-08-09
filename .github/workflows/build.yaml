@@ -1,0 +1,138 @@
+name: Build binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          # Disabling arm64 builds till ffmpeg installation support isn't available
+          # - arm64
+          - amd64
+    name: Build binaries for linux platform
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Set up go
+        id: go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.17
+
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          # Check https://github.com/livepeer/go-livepeer/pull/1891
+          # for ref value discussion
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Restore go package cache
+        id: cache-go-mod
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-${{ matrix.arch }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.arch }}-go-
+
+      - name: Download dependencies
+        if: steps.cache-go-mod.outputs.cache-hit != 'true'
+        run: go mod download
+
+      - name: Build
+        run: |
+          mkdir -p build/ releases/
+          make
+          cd build/
+          mv catalyst-uploader livepeer-catalyst-uploader
+          tar -czvf "../releases/livepeer-catalyst-uploader-linux-${GOARCH}.tar.gz" ./livepeer-catalyst-uploader
+
+      - name: Upload artifacts for processing further in linux
+        uses: actions/upload-artifact@master
+        with:
+          name: release-artifacts
+          path: releases/
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          # Disabling arm64 builds till ffmpeg installation support isn't available
+          # - arm64
+          - amd64
+    name: Build binaries for macOS platform
+    runs-on: macos-11
+    steps:
+      - name: Set up go
+        id: go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.17
+
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          # Check https://github.com/livepeer/go-livepeer/pull/1891
+          # for ref value discussion
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Restore go package cache
+        id: cache-go-mod
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-${{ matrix.arch }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.arch }}-go-
+
+      - name: Download dependencies
+        if: steps.cache-go-mod.outputs.cache-hit != 'true'
+        run: go mod download
+
+      - name: Build
+        run: |
+          mkdir -p build/ releases/
+          export PKG_CONFIG_PATH=~/compiled/lib/pkgconfig
+          make
+          cd build/
+          mv catalyst-uploader livepeer-catalyst-uploader
+
+      - uses: actions-ecosystem/action-regex-match@v2
+        id: match-tag
+        with:
+          text: ${{ github.ref_name }}
+          regex: '^(master|main|v[0-9]+\.\d+\.\d+)$'
+
+      - name: Codesign and notarize binaries
+        if: ${{ steps.match-tag.outputs.match != '' }}
+        uses: livepeer/action-gh-codesign-apple@latest
+        with:
+          developer-certificate-id: ${{ secrets.CI_MACOS_CERTIFICATE_ID }}
+          developer-certificate-base64: ${{ secrets.CI_MACOS_CERTIFICATE_BASE64 }}
+          developer-certificate-password: ${{ secrets.CI_MACOS_CERTIFICATE_PASSWORD }}
+          app-notarization-email: ${{ secrets.CI_MACOS_NOTARIZATION_USER }}
+          app-notarization-password: ${{ secrets.CI_MACOS_NOTARIZATION_PASSWORD }}
+          binary-path: "build/livepeer-catalyst-uploader"
+          app-bundle-id: "org.livepeer.catalyst-uploader"
+
+      - name: Archive signed binary
+        run: |
+          cd build/
+          tar -czvf "../releases/livepeer-catalyst-uploader-darwin-${GOARCH}.tar.gz" ./livepeer-catalyst-uploader
+
+      - name: Upload artifacts for processing further in linux
+        uses: actions/upload-artifact@master
+        with:
+          name: release-artifacts
+          path: releases/
