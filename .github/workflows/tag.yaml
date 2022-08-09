@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v1
       - name: Create latest tag
         uses: livepeer/action-gh-release-tags@v0
       - name: Tag
