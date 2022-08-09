@@ -6,11 +6,6 @@ on:
       - Trigger test suite
     types:
       - "completed"
-  push:
-    branches:
-      - "*"
-    tags:
-      - "v*"
 
 jobs:
   linux:
