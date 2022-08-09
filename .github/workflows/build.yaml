@@ -1,9 +1,6 @@
 name: Build binaries
 
 on:
-  pull_request:
-    branches:
-      - "main"
   push:
     branches:
       - "ip/release-job"
