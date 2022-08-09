@@ -6,13 +6,6 @@ on:
       - Build binaries
     types:
       - "completed"
-    tags:
-      - "v*"
-  push:
-    branches:
-      - "ip/release-job"
-    tags:
-      - "v*"
 
 jobs:
   on-failure:

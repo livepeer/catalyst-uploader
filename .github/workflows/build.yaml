@@ -6,7 +6,9 @@ on:
       - "main"
   push:
     branches:
-      - "main"
+      - "ip/release-job"
+    tags:
+      - "v*"
 
 jobs:
   linux:
