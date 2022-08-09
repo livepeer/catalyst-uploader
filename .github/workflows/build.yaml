@@ -123,7 +123,7 @@ jobs:
           developer-certificate-password: ${{ secrets.CI_MACOS_CERTIFICATE_PASSWORD }}
           app-notarization-email: ${{ secrets.CI_MACOS_NOTARIZATION_USER }}
           app-notarization-password: ${{ secrets.CI_MACOS_NOTARIZATION_PASSWORD }}
-          binary-path: "build/catalyst-uploader"
+          binary-path: "build/livepeer-catalyst-uploader"
           app-bundle-id: "org.livepeer.catalyst-uploader"
 
       - name: Archive signed binary
