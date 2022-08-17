@@ -140,3 +140,21 @@ func TestMinioHandlerE2E(t *testing.T) {
 		fmt.Println("No S3 credentials, test skipped")
 	}
 }
+
+func TestFormatsE2E(t *testing.T) {
+	assert := assert.New(t)
+	buildUploader(assert)
+	uploader := exec.Command("./catalyst-uploader", "-j")
+	stdoutRes, err := uploader.Output()
+	var driverDescr struct {
+		Drivers []drivers.OSDriverDescr `json:"storage_drivers"`
+	}
+	err = json.Unmarshal(stdoutRes, &driverDescr)
+	assert.NoError(err)
+	assert.NoError(err)
+	assert.Equal(len(drivers.AvailableDrivers), len(driverDescr.Drivers))
+	for i, h := range drivers.AvailableDrivers {
+		assert.Equal(h.Description(), driverDescr.Drivers[i].Description)
+		assert.Equal(h.UriSchemes(), driverDescr.Drivers[i].UriSchemes)
+	}
+}

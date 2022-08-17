@@ -36,6 +36,12 @@ Args:
 		return 1
 	}
 
+	// list enabled handlers and exit
+	if *describe {
+		_, _ = os.Stdout.Write(drivers.DescribeDriversJson())
+		return 0
+	}
+
 	if flag.NArg() == 0 {
 		log.Fatal("Destination URI is not specified. See -h for usage.")
 	}
@@ -63,12 +69,6 @@ Args:
 		logOutputs = append(logOutputs, lumberjackLogger)
 	}
 	log.SetOutput(io.MultiWriter(logOutputs...))
-
-	// list enabled handlers and exit
-	if *describe {
-		_, _ = os.Stdout.Write(drivers.DescribeDriversJson())
-		return 0
-	}
 
 	if uri == "" {
 		log.Fatal("Object store URI is not specified. See -h for usage.")
