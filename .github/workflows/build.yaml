@@ -11,8 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         arch:
-          # Disabling arm64 builds till ffmpeg installation support isn't available
-          # - arm64
+          - arm64
           - amd64
     name: Build binaries for linux platform
     runs-on: ubuntu-20.04
@@ -67,8 +66,7 @@ jobs:
       fail-fast: false
       matrix:
         arch:
-          # Disabling arm64 builds till ffmpeg installation support isn't available
-          # - arm64
+          - arm64
           - amd64
     name: Build binaries for macOS platform
     runs-on: macos-11
