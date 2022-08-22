@@ -128,22 +128,18 @@ jobs:
           gpg-key: ${{ secrets.CI_GPG_SIGNING_KEY }}
           gpg-key-passphrase: ${{ secrets.CI_GPG_SIGNING_PASSPHRASE }}
 
-      - name: Log in to the Container registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
       - name: Generate branch manifest
-        uses: docker://ghcr.io/livepeer/action-gh-branch-manifest:latest
+        id: branch-manifest
+        uses: livepeer/action-gh-branch-manifest@latest
         with:
           ref: ${{ github.ref }}
           ref-name: ${{ github.ref_name }}
           commit: ${{ github.sha }}
 
       - name: test
-        run: ls -lhaR
+        run: |
+          ls -lhaR
+          cat ${{ steps.branch-manifest.outputs.manifest-file }}
 
       - name: Authenticate to Google Cloud
         id: auth
