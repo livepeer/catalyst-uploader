@@ -122,14 +122,10 @@ jobs:
 
       - name: Generate branch manifest
         id: branch-manifest
-        uses: livepeer/action-gh-branch-manifest@latest
+        uses: livepeer/branch-manifest-action@latest
         with:
-          # ref: ${{ github.head_ref }}
-          # ref-name: ${{ github.ref_name }}
-          # commit: ${{ github.sha }}
           project-name: ${{ github.event.repository.name }}
           platform: linux, darwin
-          # architecture: arm64, amd64
 
       - name: Authenticate to Google Cloud
         id: auth
