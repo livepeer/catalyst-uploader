@@ -1,13 +1,10 @@
 name: Build binaries
 
 on:
-  pull_request:
   push:
+  pull_request:
     branches:
       - "main"
-      - "hjp/*"
-    tags:
-      - "v*"
 
 jobs:
   build:
@@ -25,7 +22,6 @@ jobs:
             os: macos-latest
     runs-on: ${{ matrix.platform.os }}
     outputs:
-      tags: ${{ steps.query-tag.outputs.tags }}
       match: ${{ steps.match-tags.outputs.match }}
     steps:
       - name: Set up go
@@ -46,12 +42,6 @@ jobs:
           # Check https://github.com/livepeer/go-livepeer/pull/1891
           # for ref value discussion
           ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Query Tag
-        id: query-tag
-        shell: bash
-        run: |
-          echo "::set-output name=tags::$(git describe --tag --dirty)"
 
       - name: Restore go package cache
         id: cache-go-mod
@@ -90,8 +80,8 @@ jobs:
           developer-certificate-password: ${{ secrets.CI_MACOS_CERTIFICATE_PASSWORD }}
           app-notarization-email: ${{ secrets.CI_MACOS_NOTARIZATION_USER }}
           app-notarization-password: ${{ secrets.CI_MACOS_NOTARIZATION_PASSWORD }}
-          binary-path: "build/livepeer-catalyst-uploader"
-          app-bundle-id: "org.livepeer.catalyst-uploader"
+          binary-path: build/livepeer-catalyst-uploader
+          app-bundle-id: org.livepeer.catalyst-uploader
 
       - name: Archive binaries
         run: |
@@ -123,7 +113,7 @@ jobs:
         uses: livepeer/action-gh-checksum-and-gpg-sign@latest
         with:
           artifacts-dir: releases
-          release-name: ${{ github.sha }}
+          release-name: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
           # release-name: ${{ needs.build.outputs.tags }}
           gpg-key: ${{ secrets.CI_GPG_SIGNING_KEY }}
           gpg-key-passphrase: ${{ secrets.CI_GPG_SIGNING_PASSPHRASE }}
@@ -135,6 +125,9 @@ jobs:
           ref: ${{ github.ref }}
           ref-name: ${{ github.ref_name }}
           commit: ${{ github.sha }}
+          project-name: ${{ github.event.repository.name }}
+          platform: linux, darwin
+          architecture: arm64, amd64
 
       - name: test
         run: |
@@ -149,10 +142,18 @@ jobs:
           service_account: ${{ secrets.CI_GOOGLE_SERVICE_ACCOUNT }}
 
       - name: Upload release archives to Google Cloud
-        id: upload-file
+        id: upload-archives
         uses: google-github-actions/upload-cloud-storage@v0
         with:
           path: 'releases'
-          destination: 'build.livepeer.live/${{ github.event.repository.name }}/${{ github.sha }}'
+          destination: "build.livepeer.live/${{ github.event.repository.name }}/${{ github.ref_type == 'tag' && github.ref_name || github.sha }}"
           # destination: 'build.livepeer.live/${{ github.event.repository.name }}/${{ needs.build.outputs.tags }}'
+          parent: false
+
+      - name: Upload branch manifest file
+        id: upload-manifest
+        uses: google-github-actions/upload-cloud-storage@v0
+        with:
+          path: ${{ steps.branch-manifest.outputs.manifest-file }}
+          destination: 'build.livepeer.live/${{ github.event.repository.name }}/'
           parent: false
