@@ -116,7 +116,6 @@ jobs:
         with:
           artifacts-dir: releases
           release-name: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
-          # release-name: ${{ needs.build.outputs.tags }}
           gpg-key: ${{ secrets.CI_GPG_SIGNING_KEY }}
           gpg-key-passphrase: ${{ secrets.CI_GPG_SIGNING_PASSPHRASE }}
 
@@ -140,7 +139,6 @@ jobs:
         with:
           path: 'releases'
           destination: "build.livepeer.live/${{ github.event.repository.name }}/${{ (github.ref_type == 'tag' && github.ref_name) || github.sha }}"
-          # destination: 'build.livepeer.live/${{ github.event.repository.name }}/${{ needs.build.outputs.tags }}'
           parent: false
 
       - name: Upload branch manifest file
