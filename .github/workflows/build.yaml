@@ -23,8 +23,6 @@ jobs:
           - name: darwin
             os: macos-latest
     runs-on: ${{ matrix.platform.os }}
-    outputs:
-      match: ${{ steps.match-tags.outputs.match }}
     steps:
       - name: Set up go
         id: go
