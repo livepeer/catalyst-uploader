@@ -2,11 +2,16 @@ name: Build binaries
 
 on:
   pull_request:
+  pull_request_target:
   push:
     branches:
       - "main"
     tags:
       - "v*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   build:
