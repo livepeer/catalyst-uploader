@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/livepeer/go-tools/drivers"
 	"github.com/stretchr/testify/assert"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -54,25 +55,35 @@ func testE2E(assert *assert.Assertions, fullUriStr string) {
 
 	// load object and compare contents
 	outUrl, _ := url.Parse(outJson.Uri)
-	fullUri, _ := outUrl.Parse(fullUriStr)
-	bucket := splitNonEmpty(fullUri.Path, '/')[0]
-	if !strings.Contains(outUrl.Host, bucket) {
-		// if bucket is not included in domain name of output URI, then it's already in the path
-		bucket = ""
+	if strings.Contains(fullUriStr, "ipfs://") {
+		cid := outUrl.Path
+		resp, err := http.Get("https://gateway.pinata.cloud/ipfs/" + cid)
+		assert.NoError(err)
+		defer resp.Body.Close()
+		ipfsData := new(bytes.Buffer)
+		ipfsData.ReadFrom(resp.Body)
+		assert.Equal(rndData, ipfsData.Bytes())
+	} else {
+		fullUri, _ := outUrl.Parse(fullUriStr)
+		bucket := splitNonEmpty(fullUri.Path, '/')[0]
+		if !strings.Contains(outUrl.Host, bucket) {
+			// if bucket is not included in domain name of output URI, then it's already in the path
+			bucket = ""
+		}
+		// compare key after leading slash
+		assert.Equal(fullUri.Path, path.Clean("/"+bucket+"/"+outUrl.Path))
+		os, err := drivers.ParseOSURL(fullUriStr, true)
+		assert.NoError(err)
+		session := os.NewSession("")
+		// second argument is object key and passed to API unmodified
+		data, err := session.ReadData(context.Background(), "")
+		assert.NoError(err)
+		assert.Equal(*data.Size, int64(len(rndData)))
+		osBuf := new(bytes.Buffer)
+		osBuf.ReadFrom(data.Body)
+		osData := osBuf.Bytes()
+		assert.Equal(rndData, osData)
 	}
-	// compare key after leading slash
-	assert.Equal(fullUri.Path, path.Clean("/"+bucket+"/"+outUrl.Path))
-	os, err := drivers.ParseOSURL(fullUriStr, true)
-	assert.NoError(err)
-	session := os.NewSession("")
-	// second argument is object key and passed to API unmodified
-	data, err := session.ReadData(context.Background(), "")
-	assert.NoError(err)
-	assert.Equal(*data.Size, int64(len(rndData)))
-	osBuf := new(bytes.Buffer)
-	osBuf.ReadFrom(data.Body)
-	osData := osBuf.Bytes()
-	assert.Equal(rndData, osData)
 }
 
 func TestFsHandlerE2E(t *testing.T) {
@@ -124,6 +135,18 @@ func TestS3HandlerE2E(t *testing.T) {
 		testE2E(assert, uri)
 	} else {
 		fmt.Println("No S3 credentials, test skipped")
+	}
+}
+
+func TestIpfsHandlerE2E(t *testing.T) {
+	assert := assert.New(t)
+	key := os.Getenv("PINATA_KEY")
+	secret := os.Getenv("PINATA_SECRET")
+	if secret != "" {
+		uri := fmt.Sprintf("ipfs://%s:%s@%s/", key, secret, "pinata.cloud")
+		testE2E(assert, uri)
+	} else {
+		fmt.Println("No IPFS provider credentials, test skipped")
 	}
 }
 
