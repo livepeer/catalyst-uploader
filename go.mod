@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/google/uuid v1.3.0
-	github.com/livepeer/go-tools v0.0.0-20220811104423-080e77013571
+	github.com/livepeer/go-tools v0.0.0-20220926110222-2ebcbb5685b4
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.8.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
