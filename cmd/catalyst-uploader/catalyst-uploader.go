@@ -75,7 +75,7 @@ Args:
 		log.Fatal("Object store URI is not specified. See -h for usage.")
 	}
 
-	// Always log out the URI we're trying to write to when we error
+	// Enrich the logs with parameters the uploader was called with
 	logger := log.WithField("uri", uri).WithField("timeout", *timeout)
 
 	storageDriver, err := drivers.ParseOSURL(uri, true)
