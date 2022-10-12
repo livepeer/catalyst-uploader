@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/livepeer/catalyst-uploader/core"
-	"github.com/livepeer/go-tools/drivers"
-	log "github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/livepeer/catalyst-uploader/core"
+	"github.com/livepeer/go-tools/drivers"
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 func run() int {
@@ -74,22 +75,25 @@ Args:
 		log.Fatal("Object store URI is not specified. See -h for usage.")
 	}
 
+	// Always log out the URI we're trying to write to when we error
+	logger := log.WithField("uri", uri).WithField("timeout", *timeout)
+
 	storageDriver, err := drivers.ParseOSURL(uri, true)
 	// path is passed along with the path when uploading
 	session := storageDriver.NewSession("")
 	if err != nil {
-		log.Fatal(err)
+		logger.WithField("stage", "NewSession").Fatal(err)
 	}
 	ctx := context.Background()
 	resKey, err := session.SaveData(ctx, "", os.Stdin, nil, *timeout)
 	if err != nil {
-		log.Fatal(err)
+		logger.WithField("stage", "SaveData").Fatal(err)
 	}
 
 	// success, write uploaded file details to stdout
 	err = json.NewEncoder(stdout).Encode(map[string]string{"uri": resKey})
 	if err != nil {
-		log.Fatal(err)
+		logger.WithField("stage", "SuccessResponse").Fatal(err)
 	}
 
 	return 0
