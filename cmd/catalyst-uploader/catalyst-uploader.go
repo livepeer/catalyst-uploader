@@ -5,15 +5,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/livepeer/dms-uploader/core"
+	"github.com/livepeer/dms-uploader/drivers"
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/livepeer/catalyst-uploader/core"
-	"github.com/livepeer/go-tools/drivers"
-	log "github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 func run() int {
@@ -35,12 +34,6 @@ Args:
 `, os.Args[0])
 		flag.PrintDefaults()
 		return 1
-	}
-
-	// list enabled handlers and exit
-	if *describe {
-		_, _ = os.Stdout.Write(drivers.DescribeDriversJson())
-		return 0
 	}
 
 	if flag.NArg() == 0 {
@@ -71,29 +64,32 @@ Args:
 	}
 	log.SetOutput(io.MultiWriter(logOutputs...))
 
+	// list enabled handlers and exit
+	if *describe {
+		_, _ = os.Stdout.Write(drivers.DescribeDriversJson())
+		return 0
+	}
+
 	if uri == "" {
 		log.Fatal("Object store URI is not specified. See -h for usage.")
 	}
-
-	// Enrich the logs with parameters the uploader was called with
-	logger := log.WithField("uri", uri).WithField("timeout", *timeout)
 
 	storageDriver, err := drivers.ParseOSURL(uri, true)
 	// path is passed along with the path when uploading
 	session := storageDriver.NewSession("")
 	if err != nil {
-		logger.WithField("stage", "NewSession").Fatal(err)
+		log.Fatal(err)
 	}
 	ctx := context.Background()
 	resKey, err := session.SaveData(ctx, "", os.Stdin, nil, *timeout)
 	if err != nil {
-		logger.WithField("stage", "SaveData").Fatal(err)
+		log.Fatal(err)
 	}
 
 	// success, write uploaded file details to stdout
 	err = json.NewEncoder(stdout).Encode(map[string]string{"uri": resKey})
 	if err != nil {
-		logger.WithField("stage", "SuccessResponse").Fatal(err)
+		log.Fatal(err)
 	}
 
 	return 0

@@ -12,13 +12,8 @@ Livepeer cloud storage upload utility. Called by Mist to upload video segments. 
 - in case of error, return code is not zero, and error message is returned to stderr as plain text
 
 # Example usage
-## S3
 ```
-./catalyst-uploader s3://AWS_KEY:AWS_SECRET@eu-west-1/video-upload-test/test/fa7cb350-8978-4f7d-b54f-b0b67632fcf2.ts
-```
-## Min.io
-```
-./catalyst-uploader s3+http://AWS_KEY:AWS_SECRET@localhost:9000/video-upload-test/test/fa7cb350-8978-4f7d-b54f-b0b67632fcf2.ts
+./dms-uploader -uri s3://AWS_KEY:AWS_SECRET@eu-west-1/video-upload-test -key /test/fa7cb350-8978-4f7d-b54f-b0b67632fcf2.ts
 ```
 
 # Running tests
