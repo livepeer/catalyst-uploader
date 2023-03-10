@@ -6,7 +6,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/livepeer/go-tools v0.2.9
 	github.com/sirupsen/logrus v1.9.0
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
