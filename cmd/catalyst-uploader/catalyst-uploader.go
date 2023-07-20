@@ -79,11 +79,11 @@ Args:
 	logger := log.WithField("uri", uri).WithField("timeout", *timeout)
 
 	storageDriver, err := drivers.ParseOSURL(uri, true)
+	if err != nil {
+		logger.WithField("stage", "ParseOSURL").Fatal(err)
+	}
 	// path is passed along with the path when uploading
 	session := storageDriver.NewSession("")
-	if err != nil {
-		logger.WithField("stage", "NewSession").Fatal(err)
-	}
 	ctx := context.Background()
 	resKey, err := session.SaveData(ctx, "", os.Stdin, nil, *timeout)
 	if err != nil {
