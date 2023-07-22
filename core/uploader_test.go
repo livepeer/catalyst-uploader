@@ -11,6 +11,11 @@ import (
 )
 
 func TestItWritesSlowInputIncrementally(t *testing.T) {
+	// Create a temporary output file to write to
+	outputFile, err := os.CreateTemp(os.TempDir(), "TestItWritesSlowInputIncrementally-*")
+	require.NoError(t, err)
+	defer os.Remove(outputFile.Name())
+
 	// Set up a sample manifest to incrementally pipe in
 	var lines = []string{
 		"#EXTM3U",
@@ -27,7 +32,7 @@ func TestItWritesSlowInputIncrementally(t *testing.T) {
 
 	// Kick off the upload in a goroutine so that we can check the file is incrementally written
 	go func() {
-		err := Upload(slowReader, "/tmp/test.txt", 100*time.Millisecond, time.Second)
+		err := Upload(slowReader, outputFile.Name(), 100*time.Millisecond, time.Second)
 		require.NoError(t, err, "")
 	}()
 
@@ -42,7 +47,7 @@ func TestItWritesSlowInputIncrementally(t *testing.T) {
 		}
 		time.Sleep(checkInterval)
 
-		f, err := os.ReadFile("/tmp/test.txt")
+		f, err := os.ReadFile(outputFile.Name())
 		require.NoError(t, err)
 
 		if strings.HasSuffix(strings.TrimSpace(string(f)), expectedLines[0]) {
