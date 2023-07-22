@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"time"
@@ -46,6 +47,7 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		if lastWrite.Add(waitBetweenWrites).Before(time.Now()) {
 			lastWrite = time.Now()
 			if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), nil, writeTimeout); err != nil {
+				// Just log this error, since it'll effectively be retried after the next interval
 				log.Printf("Failed to write: %s", err)
 			}
 		}
@@ -53,8 +55,10 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	if err := scanner.Err(); err != nil {
 		return err
 	}
+	// We have to do this final write, otherwise there might be final data that's arrived since the last periodic write
 	if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), nil, writeTimeout); err != nil {
-		log.Printf("Failed to write: %s", err)
+		// Don't ignore this error, since there won't be any further attempts to write
+		return fmt.Errorf("failed to write final save: %w", err)
 	}
 
 	return nil

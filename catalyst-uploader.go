@@ -14,7 +14,7 @@ import (
 var Version string
 
 const WaitBetweenWrites = 5 * time.Second
-const WriteTimeout = 10 * time.Second
+const WriteTimeout = 30 * time.Second
 
 func main() {
 	os.Exit(run())
@@ -36,12 +36,11 @@ func run() int {
 		return 1
 	}
 
-	uri := flag.Arg(0)
-
 	// replace stdout to prevent any lib from writing debug output there
 	stdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull)
 
+	uri := flag.Arg(0)
 	if uri == "" {
 		log.Fatalf("Could not parse object store URI: %s", uri)
 		return 1
