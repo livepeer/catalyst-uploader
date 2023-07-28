@@ -1,15 +1,22 @@
-cmd ?= catalyst-uploader
-version ?= $(shell git describe --tag --dirty)
-tags ?= latest $(version)
+GO_BUILD_DIR?=build/
 
-allCmds := $(shell ls ./cmd/)
+ldflags := -X 'main.Version=$(shell git rev-parse HEAD)'
 
-.PHONY: all $(allCmds)
+.PHONY: all
+all: build fmt test tidy
 
-all: $(allCmds)
+.PHONY: build
+build:
+	go build -ldflags="$(ldflags)" -o "$(GO_BUILD_DIR)catalyst-uploader" .
 
-$(allCmds):
-	$(MAKE) -C ./cmd/$@
+.PHONY: fmt
+fmt:
+	go fmt ./...
 
-run:
-	$(MAKE) -C ./cmd/$(cmd) run
+.PHONY: test
+test:
+	go test -race ./...
+
+.PHONY: tidy
+tidy:
+	go mod tidy

@@ -57,7 +57,7 @@ jobs:
       - name: Build
         run: |
           mkdir -p build/ releases/
-          make
+          make build
           cd build/
           mv catalyst-uploader livepeer-catalyst-uploader
 
