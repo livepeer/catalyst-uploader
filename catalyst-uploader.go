@@ -11,10 +11,9 @@ import (
 	"github.com/livepeer/go-tools/drivers"
 )
 
-var Version string
-
 const WaitBetweenWrites = 5 * time.Second
-const WriteTimeout = 30 * time.Second
+
+var Version string
 
 func main() {
 	os.Exit(run())
@@ -23,6 +22,7 @@ func main() {
 func run() int {
 	// cmd line args
 	describe := flag.Bool("j", false, "Describe supported storage services in JSON format and exit")
+	timeout := flag.Duration("t", 30*time.Second, "Upload timeout")
 	flag.Parse()
 
 	// list enabled handlers and exit
@@ -46,7 +46,7 @@ func run() int {
 		return 1
 	}
 
-	err := core.Upload(os.Stdin, uri, WaitBetweenWrites, WriteTimeout)
+	err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout)
 	if err != nil {
 		log.Fatalf("Uploader failed for %s: %s", uri, err)
 		return 1
