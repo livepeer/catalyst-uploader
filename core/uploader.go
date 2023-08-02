@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/livepeer/go-tools/drivers"
@@ -42,12 +43,17 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	for scanner.Scan() {
 		b := scanner.Bytes()
 		fileContents = append(fileContents, b...)
+		if strings.Contains(outputURI, "m3u8") {
+			log.Printf("Received new bytes for %s: %s", outputURI, string(b))
+		}
 
 		// Only write the latest version of the data that's been piped in if enough time has elapsed since the last write
 		if lastWrite.Add(waitBetweenWrites).Before(time.Now()) {
 			if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), nil, writeTimeout); err != nil {
 				// Just log this error, since it'll effectively be retried after the next interval
 				log.Printf("Failed to write: %s", err)
+			} else {
+				log.Printf("Wrote %s to storage: %d bytes", outputURI, len(b))
 			}
 			lastWrite = time.Now()
 		}
