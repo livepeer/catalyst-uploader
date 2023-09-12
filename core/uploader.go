@@ -61,8 +61,21 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	if err := scanner.Err(); err != nil {
 		return err
 	}
+
+	// While we wait for storj to implement an easier method for global object deletion we are hacking something
+	// here to allow us to have recording objects deleted after 7 days.
+	var fields *drivers.FileProperties
+	if strings.Contains(outputURI, "gateway.storjshare.io/catalyst-recordings-monster") ||
+		strings.Contains(outputURI, "gateway.storjshare.io/catalyst-recordings-com") {
+		fields = &drivers.FileProperties{
+			Metadata: map[string]string{
+				"Object-Expires": "+168h", // Objects will be deleted after 7 days
+			},
+		}
+	}
+
 	// We have to do this final write, otherwise there might be final data that's arrived since the last periodic write
-	if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), nil, writeTimeout); err != nil {
+	if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, writeTimeout); err != nil {
 		// Don't ignore this error, since there won't be any further attempts to write
 		return fmt.Errorf("failed to write final save: %w", err)
 	}
