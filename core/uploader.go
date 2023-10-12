@@ -23,6 +23,22 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		return err
 	}
 
+	// While we wait for storj to implement an easier method for global object deletion we are hacking something
+	// here to allow us to have recording objects deleted after 7 days.
+	var fields *drivers.FileProperties
+	if strings.Contains(outputURI, "gateway.storjshare.io/catalyst-recordings-com") {
+		fields = &drivers.FileProperties{
+			Metadata: map[string]string{
+				"Object-Expires": "+168h", // Objects will be deleted after 7 days
+			},
+		}
+	}
+
+	if strings.HasSuffix(outputURI, ".ts") || strings.HasSuffix(outputURI, ".mp4") {
+		_, err := session.SaveData(context.Background(), "", input, fields, writeTimeout)
+		return err
+	}
+
 	var fileContents = []byte{}
 	var lastWrite = time.Now()
 
@@ -49,7 +65,7 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 
 		// Only write the latest version of the data that's been piped in if enough time has elapsed since the last write
 		if lastWrite.Add(waitBetweenWrites).Before(time.Now()) {
-			if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), nil, writeTimeout); err != nil {
+			if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, writeTimeout); err != nil {
 				// Just log this error, since it'll effectively be retried after the next interval
 				log.Printf("Failed to write: %s", err)
 			} else {
@@ -60,17 +76,6 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	}
 	if err := scanner.Err(); err != nil {
 		return err
-	}
-
-	// While we wait for storj to implement an easier method for global object deletion we are hacking something
-	// here to allow us to have recording objects deleted after 7 days.
-	var fields *drivers.FileProperties
-	if strings.Contains(outputURI, "gateway.storjshare.io/catalyst-recordings-com") {
-		fields = &drivers.FileProperties{
-			Metadata: map[string]string{
-				"Object-Expires": "+168h", // Objects will be deleted after 7 days
-			},
-		}
 	}
 
 	// We have to do this final write, otherwise there might be final data that's arrived since the last periodic write
