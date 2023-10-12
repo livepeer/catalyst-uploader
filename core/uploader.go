@@ -35,6 +35,8 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	}
 
 	if strings.HasSuffix(outputURI, ".ts") || strings.HasSuffix(outputURI, ".mp4") {
+		// For segments we just write them in one go here and return early.
+		// (Otherwise the incremental write logic below caused issues with clipping since it results in partial segments being written.)
 		_, err := session.SaveData(context.Background(), "", input, fields, writeTimeout)
 		return err
 	}
