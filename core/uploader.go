@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -38,7 +41,12 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		// For segments we just write them in one go here and return early.
 		// (Otherwise the incremental write logic below caused issues with clipping since it results in partial segments being written.)
 		_, err := session.SaveData(context.Background(), "", input, fields, writeTimeout)
-		return err
+		if err != nil {
+			return err
+		}
+
+		extractThumb(session)
+		return nil
 	}
 
 	var fileContents = []byte{}
@@ -87,4 +95,57 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	}
 
 	return nil
+}
+
+func extractThumb(session drivers.OSSession) {
+	presigned, err := session.Presign("", 5*time.Minute)
+	if err != nil {
+		log.Printf("Presigning failed: %s", err)
+		return
+	}
+
+	outDir, err := os.MkdirTemp(os.TempDir(), "thumb-*")
+	if err != nil {
+		log.Printf("Temp file creation failed: %s", err)
+		return
+	}
+	defer os.RemoveAll(outDir)
+	outFile := filepath.Join(outDir, "out.jpg")
+
+	args := []string{
+		"-i", presigned,
+		"-vf", "select=eq(pict_type\\,I)",
+		"-vsync", "vfr",
+		"-vf", fmt.Sprintf("fps=1/10"),
+		"-update", "1",
+		"-y",
+		outFile,
+	}
+
+	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(timeout, "ffmpeg", args...)
+
+	var outputBuf bytes.Buffer
+	var stdErr bytes.Buffer
+	cmd.Stdout = &outputBuf
+	cmd.Stderr = &stdErr
+
+	err = cmd.Run()
+	if err != nil {
+		log.Printf("ffmpeg failed[%s] [%s]: %s", outputBuf.String(), stdErr.String(), err)
+		return
+	}
+
+	f, err := os.Open(outFile)
+	if err != nil {
+		log.Printf("Opening file failed: %s", err)
+		return
+	}
+	defer f.Close()
+	_, err = session.SaveData(context.Background(), "../latest.jpg", f, &drivers.FileProperties{CacheControl: "max-age=5"}, 1*time.Minute)
+	if err != nil {
+		log.Printf("Saving thumbnail failed: %s", err)
+		return
+	}
 }
