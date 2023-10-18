@@ -114,15 +114,13 @@ func extractThumb(session drivers.OSSession) {
 
 	args := []string{
 		"-i", presigned,
-		"-vf", "select=eq(pict_type\\,I)",
-		"-vsync", "vfr",
-		"-vf", fmt.Sprintf("fps=1/10"),
-		"-update", "1",
+		"-ss", "00:00:00",
+		"-vframes", "1",
 		"-y",
 		outFile,
 	}
 
-	timeout, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	timeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(timeout, "ffmpeg", args...)
 
@@ -143,7 +141,7 @@ func extractThumb(session drivers.OSSession) {
 		return
 	}
 	defer f.Close()
-	_, err = session.SaveData(context.Background(), "../latest.jpg", f, &drivers.FileProperties{CacheControl: "max-age=5"}, 1*time.Minute)
+	_, err = session.SaveData(context.Background(), "../latest.jpg", f, &drivers.FileProperties{CacheControl: "max-age=5"}, 10*time.Second)
 	if err != nil {
 		log.Printf("Saving thumbnail failed: %s", err)
 		return
