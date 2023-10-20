@@ -116,6 +116,7 @@ func extractThumb(uri string, session drivers.OSSession) {
 		"-i", presigned,
 		"-ss", "00:00:00",
 		"-vframes", "1",
+		"-vf", "scale=320:240:force_original_aspect_ratio=decrease",
 		"-y",
 		outFile,
 	}
