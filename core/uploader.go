@@ -45,7 +45,7 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 			return err
 		}
 
-		extractThumb(outputURI, session)
+		extractThumb(session)
 		return nil
 	}
 
@@ -97,16 +97,16 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	return nil
 }
 
-func extractThumb(uri string, session drivers.OSSession) {
+func extractThumb(session drivers.OSSession) {
 	presigned, err := session.Presign("", 5*time.Minute)
 	if err != nil {
-		log.Printf("Presigning failed for %s: %s", uri, err)
+		log.Printf("Presigning failed: %s", err)
 		return
 	}
 
 	outDir, err := os.MkdirTemp(os.TempDir(), "thumb-*")
 	if err != nil {
-		log.Printf("Temp file creation failed for %s: %s", uri, err)
+		log.Printf("Temp file creation failed: %s", err)
 		return
 	}
 	defer os.RemoveAll(outDir)
@@ -132,19 +132,19 @@ func extractThumb(uri string, session drivers.OSSession) {
 
 	err = cmd.Run()
 	if err != nil {
-		log.Printf("ffmpeg failed for %s [%s] [%s]: %s", uri, outputBuf.String(), stdErr.String(), err)
+		log.Printf("ffmpeg failed[%s] [%s]: %s", outputBuf.String(), stdErr.String(), err)
 		return
 	}
 
 	f, err := os.Open(outFile)
 	if err != nil {
-		log.Printf("Opening file failed for %s: %s", uri, err)
+		log.Printf("Opening file failed: %s", err)
 		return
 	}
 	defer f.Close()
 	_, err = session.SaveData(context.Background(), "../latest.jpg", f, &drivers.FileProperties{CacheControl: "max-age=5"}, 10*time.Second)
 	if err != nil {
-		log.Printf("Saving thumbnail failed for %s: %s", uri, err)
+		log.Printf("Saving thumbnail failed: %s", err)
 		return
 	}
 }
