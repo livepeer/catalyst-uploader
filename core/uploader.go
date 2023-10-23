@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -38,7 +41,14 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		// For segments we just write them in one go here and return early.
 		// (Otherwise the incremental write logic below caused issues with clipping since it results in partial segments being written.)
 		_, err := session.SaveData(context.Background(), "", input, fields, writeTimeout)
-		return err
+		if err != nil {
+			return err
+		}
+
+		if err = extractThumb(session); err != nil {
+			log.Printf("extracting thumbnail failed: %s", err)
+		}
+		return nil
 	}
 
 	var fileContents = []byte{}
@@ -86,5 +96,53 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		return fmt.Errorf("failed to write final save: %w", err)
 	}
 
+	return nil
+}
+
+func extractThumb(session drivers.OSSession) error {
+	presigned, err := session.Presign("", 5*time.Minute)
+	if err != nil {
+		return fmt.Errorf("presigning failed: %w", err)
+	}
+
+	outDir, err := os.MkdirTemp(os.TempDir(), "thumb-*")
+	if err != nil {
+		return fmt.Errorf("temp file creation failed: %w", err)
+	}
+	defer os.RemoveAll(outDir)
+	outFile := filepath.Join(outDir, "out.jpg")
+
+	args := []string{
+		"-i", presigned,
+		"-ss", "00:00:00",
+		"-vframes", "1",
+		"-vf", "scale=320:240:force_original_aspect_ratio=decrease",
+		"-y",
+		outFile,
+	}
+
+	timeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(timeout, "ffmpeg", args...)
+
+	var outputBuf bytes.Buffer
+	var stdErr bytes.Buffer
+	cmd.Stdout = &outputBuf
+	cmd.Stderr = &stdErr
+
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("ffmpeg failed[%s] [%s]: %w", outputBuf.String(), stdErr.String(), err)
+	}
+
+	f, err := os.Open(outFile)
+	if err != nil {
+		return fmt.Errorf("opening file failed: %w", err)
+	}
+	defer f.Close()
+	_, err = session.SaveData(context.Background(), "../latest.jpg", f, &drivers.FileProperties{CacheControl: "max-age=5"}, 10*time.Second)
+	if err != nil {
+		return fmt.Errorf("saving thumbnail failed: %w", err)
+	}
 	return nil
 }
