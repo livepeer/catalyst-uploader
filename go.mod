@@ -3,7 +3,7 @@ module github.com/livepeer/catalyst-uploader
 go 1.17
 
 require (
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.4.0
 	github.com/livepeer/go-tools v0.3.2
 	github.com/stretchr/testify v1.8.4
 )
