@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/google/uuid v1.3.0
-	github.com/livepeer/go-tools v0.3.2
+	github.com/livepeer/go-tools v0.3.3
 	github.com/stretchr/testify v1.8.4
 )
 
