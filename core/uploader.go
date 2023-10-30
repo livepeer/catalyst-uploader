@@ -13,8 +13,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/livepeer/go-tools/drivers"
 )
+
+func newExponentialBackOffExecutor() *backoff.ExponentialBackOff {
+	backOff := backoff.NewExponentialBackOff()
+	backOff.InitialInterval = 200 * time.Millisecond
+	backOff.MaxInterval = 5 * time.Second
+	backOff.MaxElapsedTime = 0 // don't impose a timeout as part of the retries
+
+	return backOff
+}
+
+func UploadRetryBackoff() backoff.BackOff {
+	return backoff.WithMaxRetries(newExponentialBackOffExecutor(), 3)
+}
 
 func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout time.Duration) error {
 	storageDriver, err := drivers.ParseOSURL(outputURI, true)
@@ -40,9 +54,12 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	if strings.HasSuffix(outputURI, ".ts") || strings.HasSuffix(outputURI, ".mp4") {
 		// For segments we just write them in one go here and return early.
 		// (Otherwise the incremental write logic below caused issues with clipping since it results in partial segments being written.)
-		_, err := session.SaveData(context.Background(), "", input, fields, writeTimeout)
-		if err != nil {
+		err = backoff.Retry(func() error {
+			_, err := session.SaveData(context.Background(), "", input, fields, writeTimeout)
 			return err
+		}, UploadRetryBackoff())
+		if err != nil {
+			return fmt.Errorf("failed to upload video: %w", err)
 		}
 
 		if err = extractThumb(session); err != nil {
