@@ -54,8 +54,16 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	if strings.HasSuffix(outputURI, ".ts") || strings.HasSuffix(outputURI, ".mp4") {
 		// For segments we just write them in one go here and return early.
 		// (Otherwise the incremental write logic below caused issues with clipping since it results in partial segments being written.)
+		fileContents, err := io.ReadAll(input)
+		if err != nil {
+			return fmt.Errorf("failed to read file")
+		}
+
 		err = backoff.Retry(func() error {
-			_, err := session.SaveData(context.Background(), "", input, fields, writeTimeout)
+			_, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, writeTimeout)
+			if err != nil {
+				log.Printf("failed upload attempt: %s", err)
+			}
 			return err
 		}, UploadRetryBackoff())
 		if err != nil {
