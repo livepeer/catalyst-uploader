@@ -70,13 +70,13 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 			return fmt.Errorf("failed to upload video: %w", err)
 		}
 
-		if err = extractThumb(session); err != nil {
+		if err = extractThumb(session, outputURI, fileContents); err != nil {
 			log.Printf("extracting thumbnail failed: %s", err)
 		}
 		return nil
 	}
 
-	var fileContents = []byte{}
+	var fileContents []byte
 	var lastWrite = time.Now()
 
 	scanner := bufio.NewScanner(input)
@@ -124,21 +124,20 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	return nil
 }
 
-func extractThumb(session drivers.OSSession) error {
-	presigned, err := session.Presign("", 5*time.Minute)
-	if err != nil {
-		return fmt.Errorf("presigning failed: %w", err)
-	}
-
-	outDir, err := os.MkdirTemp(os.TempDir(), "thumb-*")
+func extractThumb(session drivers.OSSession, filename string, segment []byte) error {
+	tmpDir, err := os.MkdirTemp(os.TempDir(), "thumb-*")
 	if err != nil {
 		return fmt.Errorf("temp file creation failed: %w", err)
 	}
-	defer os.RemoveAll(outDir)
-	outFile := filepath.Join(outDir, "out.jpg")
+	defer os.RemoveAll(tmpDir)
+	outFile := filepath.Join(tmpDir, "out.jpg")
+	inFile := filepath.Join(tmpDir, filepath.Base(filename))
+	if err = os.WriteFile(inFile, segment, 0644); err != nil {
+		return fmt.Errorf("failed to write input file: %w", err)
+	}
 
 	args := []string{
-		"-i", presigned,
+		"-i", inFile,
 		"-ss", "00:00:00",
 		"-vframes", "1",
 		"-vf", "scale=320:240:force_original_aspect_ratio=decrease",
