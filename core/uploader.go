@@ -42,7 +42,7 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 
 	// While we wait for storj to implement an easier method for global object deletion we are hacking something
 	// here to allow us to have recording objects deleted after 7 days.
-	var fields *drivers.FileProperties
+	fields := &drivers.FileProperties{}
 	if strings.Contains(outputURI, "gateway.storjshare.io/catalyst-recordings-com") {
 		fields = &drivers.FileProperties{
 			Metadata: map[string]string{
@@ -76,6 +76,8 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		return nil
 	}
 
+	// For the manifest files we want a very short cache ttl as the files are updating every few seconds
+	fields.CacheControl = "max-age=1"
 	var fileContents []byte
 	var lastWrite = time.Now()
 
