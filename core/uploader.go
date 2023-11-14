@@ -147,7 +147,7 @@ func extractThumb(session drivers.OSSession, filename string, segment []byte) er
 		outFile,
 	}
 
-	timeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	timeout, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(timeout, "ffmpeg", args...)
 
