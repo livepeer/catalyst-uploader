@@ -46,7 +46,7 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	if strings.Contains(outputURI, "gateway.storjshare.io/catalyst-recordings-com") {
 		fields = &drivers.FileProperties{
 			Metadata: map[string]string{
-				"Object-Expires": "+168h", // Objects will be deleted after 7 days
+				"Object-Expires": "+720h", // Objects will be deleted after 30 days
 			},
 		}
 	}
