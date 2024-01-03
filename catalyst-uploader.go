@@ -3,10 +3,10 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"log"
 	"os"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/livepeer/catalyst-uploader/core"
 	"github.com/livepeer/go-tools/drivers"
 )
@@ -32,7 +32,7 @@ func run() int {
 	}
 
 	if flag.NArg() == 0 {
-		log.Fatal("Destination URI is not specified. See -h for usage.")
+		glog.Fatal("Destination URI is not specified. See -h for usage.")
 		return 1
 	}
 
@@ -42,20 +42,20 @@ func run() int {
 
 	uri := flag.Arg(0)
 	if uri == "" {
-		log.Fatalf("Could not parse object store URI: %s", uri)
+		glog.Fatalf("Could not parse object store URI: %s", uri)
 		return 1
 	}
 
 	err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout)
 	if err != nil {
-		log.Fatalf("Uploader failed for %s: %s", uri, err)
+		glog.Fatalf("Uploader failed for %s: %s", uri, err)
 		return 1
 	}
 
 	// success, write uploaded file details to stdout
 	err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri})
 	if err != nil {
-		log.Println(err)
+		glog.Fatal(err)
 		return 1
 	}
 

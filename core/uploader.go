@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/golang/glog"
 	"github.com/livepeer/go-tools/drivers"
 )
 
@@ -62,7 +62,7 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		err = backoff.Retry(func() error {
 			_, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, writeTimeout)
 			if err != nil {
-				log.Printf("failed upload attempt: %s", err)
+				glog.Errorf("failed upload attempt: %v", err)
 			}
 			return err
 		}, UploadRetryBackoff())
@@ -71,7 +71,7 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		}
 
 		if err = extractThumb(session, outputURI, fileContents); err != nil {
-			log.Printf("extracting thumbnail failed: %s", err)
+			glog.Errorf("extracting thumbnail failed: %v", err)
 		}
 		return nil
 	}
@@ -99,16 +99,16 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		b := scanner.Bytes()
 		fileContents = append(fileContents, b...)
 		if strings.Contains(outputURI, "m3u8") {
-			log.Printf("Received new bytes for %s: %s", outputURI, string(b))
+			glog.V(5).Infof("Received new bytes for %s: %s", outputURI, string(b))
 		}
 
 		// Only write the latest version of the data that's been piped in if enough time has elapsed since the last write
 		if lastWrite.Add(waitBetweenWrites).Before(time.Now()) {
 			if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, writeTimeout); err != nil {
 				// Just log this error, since it'll effectively be retried after the next interval
-				log.Printf("Failed to write: %s", err)
+				glog.Errorf("Failed to write: %v", err)
 			} else {
-				log.Printf("Wrote %s to storage: %d bytes", outputURI, len(b))
+				glog.V(5).Infof("Wrote %s to storage: %d bytes", outputURI, len(b))
 			}
 			lastWrite = time.Now()
 		}
@@ -122,7 +122,7 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		// Don't ignore this error, since there won't be any further attempts to write
 		return fmt.Errorf("failed to write final save: %w", err)
 	}
-
+	glog.Infof("Completed writing %s to storage", outputURI)
 	return nil
 }
 

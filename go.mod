@@ -3,6 +3,8 @@ module github.com/livepeer/catalyst-uploader
 go 1.17
 
 require (
+	github.com/cenkalti/backoff/v4 v4.2.1
+	github.com/golang/glog v1.1.0
 	github.com/google/uuid v1.3.0
 	github.com/livepeer/go-tools v0.3.3
 	github.com/stretchr/testify v1.8.4
@@ -15,7 +17,6 @@ require (
 	cloud.google.com/go/iam v1.1.0 // indirect
 	cloud.google.com/go/storage v1.30.1 // indirect
 	github.com/aws/aws-sdk-go v1.44.273 // indirect
-	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
