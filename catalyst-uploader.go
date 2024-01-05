@@ -20,6 +20,10 @@ func main() {
 }
 
 func run() int {
+	err := flag.Set("logtostderr", "true")
+	if err != nil {
+		glog.Fatal(err)
+	}
 	// cmd line args
 	describe := flag.Bool("j", false, "Describe supported storage services in JSON format and exit")
 	timeout := flag.Duration("t", 30*time.Second, "Upload timeout")
@@ -37,7 +41,6 @@ func run() int {
 	}
 
 	// replace stdout to prevent any lib from writing debug output there
-	stdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull)
 
 	uri := flag.Arg(0)
@@ -46,17 +49,20 @@ func run() int {
 		return 1
 	}
 
-	err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout)
+	err = core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout)
 	if err != nil {
 		glog.Fatalf("Uploader failed for %s: %s", uri, err)
 		return 1
 	}
 
 	// success, write uploaded file details to stdout
-	err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri})
-	if err != nil {
-		glog.Fatal(err)
-		return 1
+	if glog.V(5) {
+		b, err := json.Marshal(map[string]string{"uri": uri})
+		if err != nil {
+			glog.Fatal(err)
+			return 1
+		}
+		glog.Info(string(b))
 	}
 
 	return 0
