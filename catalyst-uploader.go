@@ -41,6 +41,7 @@ func run() int {
 	}
 
 	// replace stdout to prevent any lib from writing debug output there
+	stdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull)
 
 	uri := flag.Arg(0)
@@ -57,12 +58,11 @@ func run() int {
 
 	// success, write uploaded file details to stdout
 	if glog.V(5) {
-		b, err := json.Marshal(map[string]string{"uri": uri})
+		err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri})
 		if err != nil {
 			glog.Fatal(err)
 			return 1
 		}
-		glog.Info(string(b))
 	}
 
 	return 0

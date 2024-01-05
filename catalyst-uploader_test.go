@@ -88,7 +88,7 @@ func TestFsHandlerE2E(t *testing.T) {
 	defer os.Remove(outFileName)
 
 	// run
-	uploader := exec.Command("go", "run", "catalyst-uploader.go", outFileName)
+	uploader := exec.Command("go", "run", "catalyst-uploader.go", "-v", "5", outFileName)
 	uploader.Stdin = stdinReader
 	stdoutRes, err := uploader.Output()
 	require.NoError(t, err)
