@@ -98,9 +98,6 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 	for scanner.Scan() {
 		b := scanner.Bytes()
 		fileContents = append(fileContents, b...)
-		if strings.Contains(outputURI, "m3u8") {
-			glog.V(5).Infof("Received new bytes for %s: %s", outputURI, string(b))
-		}
 
 		// Only write the latest version of the data that's been piped in if enough time has elapsed since the last write
 		if lastWrite.Add(waitBetweenWrites).Before(time.Now()) {
