@@ -27,7 +27,12 @@ func run() int {
 	// cmd line args
 	describe := flag.Bool("j", false, "Describe supported storage services in JSON format and exit")
 	timeout := flag.Duration("t", 30*time.Second, "Upload timeout")
+	vFlag := flag.Lookup("v")
+	verbosity := flag.String("v", "3", "Log verbosity. {4|5|6}")
+
 	flag.Parse()
+
+	vFlag.Value.Set(*verbosity)
 
 	// list enabled handlers and exit
 	if *describe {
