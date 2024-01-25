@@ -64,16 +64,16 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		err = backoff.Retry(func() error {
 			_, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, segmentWriteTimeout)
 			if err != nil {
-				glog.Errorf("failed upload attempt: %v", err)
+				glog.Errorf("failed upload attempt for %s: %v", outputURI, err)
 			}
 			return err
 		}, UploadRetryBackoff())
 		if err != nil {
-			return fmt.Errorf("failed to upload video: %w", err)
+			return fmt.Errorf("failed to upload video %s: %w", outputURI, err)
 		}
 
 		if err = extractThumb(session, outputURI, fileContents); err != nil {
-			glog.Errorf("extracting thumbnail failed: %v", err)
+			glog.Errorf("extracting thumbnail failed for %s: %v", outputURI, err)
 		}
 		return nil
 	}
