@@ -30,6 +30,8 @@ func UploadRetryBackoff() backoff.BackOff {
 	return backoff.WithMaxRetries(newExponentialBackOffExecutor(), 3)
 }
 
+const segmentWriteTimeout = 5 * time.Minute
+
 func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout time.Duration) error {
 	storageDriver, err := drivers.ParseOSURL(outputURI, true)
 	if err != nil {
@@ -60,7 +62,7 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		}
 
 		err = backoff.Retry(func() error {
-			_, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, writeTimeout)
+			_, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, segmentWriteTimeout)
 			if err != nil {
 				glog.Errorf("failed upload attempt: %v", err)
 			}
