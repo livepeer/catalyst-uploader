@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"net/url"
 	"os"
 	"time"
 
@@ -44,20 +45,26 @@ func run() int {
 	stdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull)
 
-	uri := flag.Arg(0)
-	if uri == "" {
-		glog.Fatalf("Could not parse object store URI: %s", uri)
+	output := flag.Arg(0)
+	if output == "" {
+		glog.Fatal("Object store URI was emtpy")
+		return 1
+	}
+
+	uri, err := url.Parse(output)
+	if err != nil {
+		glog.Fatalf("Failed to parse URI: %s", err)
 		return 1
 	}
 
 	err = core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout)
 	if err != nil {
-		glog.Fatalf("Uploader failed for %s: %s", uri, err)
+		glog.Fatalf("Uploader failed for %s: %s", uri.Redacted(), err)
 		return 1
 	}
 
 	// success, write uploaded file details to stdout
-	err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri})
+	err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri.Redacted()})
 	if err != nil {
 		glog.Fatal(err)
 		return 1

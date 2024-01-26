@@ -2,6 +2,7 @@ package core
 
 import (
 	"io"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -32,7 +33,9 @@ func TestItWritesSlowInputIncrementally(t *testing.T) {
 
 	// Kick off the upload in a goroutine so that we can check the file is incrementally written
 	go func() {
-		err := Upload(slowReader, outputFile.Name(), 100*time.Millisecond, time.Second)
+		u, err := url.Parse(outputFile.Name())
+		require.NoError(t, err)
+		err = Upload(slowReader, u, 100*time.Millisecond, time.Second)
 		require.NoError(t, err, "")
 	}()
 
