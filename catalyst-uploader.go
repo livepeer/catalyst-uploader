@@ -57,12 +57,10 @@ func run() int {
 	}
 
 	// success, write uploaded file details to stdout
-	if glog.V(5) {
-		err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri})
-		if err != nil {
-			glog.Fatal(err)
-			return 1
-		}
+	err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri})
+	if err != nil {
+		glog.Fatal(err)
+		return 1
 	}
 
 	return 0
