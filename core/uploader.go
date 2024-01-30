@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,20 +33,21 @@ func UploadRetryBackoff() backoff.BackOff {
 
 const segmentWriteTimeout = 5 * time.Minute
 
-func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout time.Duration) error {
-	storageDriver, err := drivers.ParseOSURL(outputURI, true)
+func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration) (*drivers.SaveDataOutput, error) {
+	output := outputURI.String()
+	storageDriver, err := drivers.ParseOSURL(output, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	session := storageDriver.NewSession("")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// While we wait for storj to implement an easier method for global object deletion we are hacking something
 	// here to allow us to have recording objects deleted after 7 days.
 	fields := &drivers.FileProperties{}
-	if strings.Contains(outputURI, "gateway.storjshare.io/catalyst-recordings-com") {
+	if strings.Contains(output, "gateway.storjshare.io/catalyst-recordings-com") {
 		fields = &drivers.FileProperties{
 			Metadata: map[string]string{
 				"Object-Expires": "+720h", // Objects will be deleted after 30 days
@@ -53,29 +55,30 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 		}
 	}
 
-	if strings.HasSuffix(outputURI, ".ts") || strings.HasSuffix(outputURI, ".mp4") {
+	if strings.HasSuffix(output, ".ts") || strings.HasSuffix(output, ".mp4") {
 		// For segments we just write them in one go here and return early.
 		// (Otherwise the incremental write logic below caused issues with clipping since it results in partial segments being written.)
 		fileContents, err := io.ReadAll(input)
 		if err != nil {
-			return fmt.Errorf("failed to read file")
+			return nil, fmt.Errorf("failed to read file")
 		}
 
+		var out *drivers.SaveDataOutput
 		err = backoff.Retry(func() error {
-			_, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, segmentWriteTimeout)
+			out, err = session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, segmentWriteTimeout)
 			if err != nil {
-				glog.Errorf("failed upload attempt: %v", err)
+				glog.Errorf("failed upload attempt for %s: %v", outputURI.Redacted(), err)
 			}
 			return err
 		}, UploadRetryBackoff())
 		if err != nil {
-			return fmt.Errorf("failed to upload video: %w", err)
+			return nil, fmt.Errorf("failed to upload video %s: %w", outputURI.Redacted(), err)
 		}
 
-		if err = extractThumb(session, outputURI, fileContents); err != nil {
-			glog.Errorf("extracting thumbnail failed: %v", err)
+		if err = extractThumb(session, output, fileContents); err != nil {
+			glog.Errorf("extracting thumbnail failed for %s: %v", outputURI.Redacted(), err)
 		}
-		return nil
+		return out, nil
 	}
 
 	// For the manifest files we want a very short cache ttl as the files are updating every few seconds
@@ -107,22 +110,22 @@ func Upload(input io.Reader, outputURI string, waitBetweenWrites, writeTimeout t
 				// Just log this error, since it'll effectively be retried after the next interval
 				glog.Errorf("Failed to write: %v", err)
 			} else {
-				glog.V(5).Infof("Wrote %s to storage: %d bytes", outputURI, len(b))
+				glog.V(5).Infof("Wrote %s to storage: %d bytes", outputURI.Redacted(), len(b))
 			}
 			lastWrite = time.Now()
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return err
+		return nil, err
 	}
 
 	// We have to do this final write, otherwise there might be final data that's arrived since the last periodic write
 	if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, writeTimeout); err != nil {
 		// Don't ignore this error, since there won't be any further attempts to write
-		return fmt.Errorf("failed to write final save: %w", err)
+		return nil, fmt.Errorf("failed to write final save: %w", err)
 	}
-	glog.Infof("Completed writing %s to storage", outputURI)
-	return nil
+	glog.Infof("Completed writing %s to storage", outputURI.Redacted())
+	return nil, nil
 }
 
 func extractThumb(session drivers.OSSession, filename string, segment []byte) error {
