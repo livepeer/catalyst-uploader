@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"net/http"
 	"net/url"
 	"os"
 	"time"
@@ -47,7 +48,7 @@ func run() int {
 
 	output := flag.Arg(0)
 	if output == "" {
-		glog.Fatal("Object store URI was emtpy")
+		glog.Fatal("Object store URI was empty")
 		return 1
 	}
 
@@ -57,17 +58,24 @@ func run() int {
 		return 1
 	}
 
-	err = core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout)
+	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout)
 	if err != nil {
 		glog.Fatalf("Uploader failed for %s: %s", uri.Redacted(), err)
 		return 1
 	}
 
+	var respHeaders http.Header
+	if out != nil {
+		respHeaders = out.UploaderResponseHeaders
+	}
+	glog.Infof("Uploader succeeded for %s. storageRequestID=%s Etag=%s", uri.Redacted(), respHeaders.Get("X-Amz-Request-Id"), respHeaders.Get("Etag"))
 	// success, write uploaded file details to stdout
-	err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri.Redacted()})
-	if err != nil {
-		glog.Fatal(err)
-		return 1
+	if glog.V(5) {
+		err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri.Redacted()})
+		if err != nil {
+			glog.Fatal(err)
+			return 1
+		}
 	}
 
 	return 0

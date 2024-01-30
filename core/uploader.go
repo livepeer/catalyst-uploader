@@ -33,15 +33,15 @@ func UploadRetryBackoff() backoff.BackOff {
 
 const segmentWriteTimeout = 5 * time.Minute
 
-func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration) error {
+func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration) (*drivers.SaveDataOutput, error) {
 	output := outputURI.String()
 	storageDriver, err := drivers.ParseOSURL(output, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	session := storageDriver.NewSession("")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// While we wait for storj to implement an easier method for global object deletion we are hacking something
@@ -60,24 +60,25 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 		// (Otherwise the incremental write logic below caused issues with clipping since it results in partial segments being written.)
 		fileContents, err := io.ReadAll(input)
 		if err != nil {
-			return fmt.Errorf("failed to read file")
+			return nil, fmt.Errorf("failed to read file")
 		}
 
+		var out *drivers.SaveDataOutput
 		err = backoff.Retry(func() error {
-			_, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, segmentWriteTimeout)
+			out, err = session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, segmentWriteTimeout)
 			if err != nil {
 				glog.Errorf("failed upload attempt for %s: %v", outputURI.Redacted(), err)
 			}
 			return err
 		}, UploadRetryBackoff())
 		if err != nil {
-			return fmt.Errorf("failed to upload video %s: %w", outputURI.Redacted(), err)
+			return nil, fmt.Errorf("failed to upload video %s: %w", outputURI.Redacted(), err)
 		}
 
 		if err = extractThumb(session, output, fileContents); err != nil {
 			glog.Errorf("extracting thumbnail failed for %s: %v", outputURI.Redacted(), err)
 		}
-		return nil
+		return out, nil
 	}
 
 	// For the manifest files we want a very short cache ttl as the files are updating every few seconds
@@ -115,16 +116,16 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return err
+		return nil, err
 	}
 
 	// We have to do this final write, otherwise there might be final data that's arrived since the last periodic write
 	if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, writeTimeout); err != nil {
 		// Don't ignore this error, since there won't be any further attempts to write
-		return fmt.Errorf("failed to write final save: %w", err)
+		return nil, fmt.Errorf("failed to write final save: %w", err)
 	}
 	glog.Infof("Completed writing %s to storage", outputURI.Redacted())
-	return nil
+	return nil, nil
 }
 
 func extractThumb(session drivers.OSSession, filename string, segment []byte) error {
