@@ -24,7 +24,8 @@ func main() {
 func run() int {
 	err := flag.Set("logtostderr", "true")
 	if err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return 1
 	}
 	// cmd line args
 	describe := flag.Bool("j", false, "Describe supported storage services in JSON format and exit")
@@ -38,7 +39,7 @@ func run() int {
 	}
 
 	if flag.NArg() == 0 {
-		glog.Fatal("Destination URI is not specified. See -h for usage.")
+		glog.Error("Destination URI is not specified. See -h for usage.")
 		return 1
 	}
 
@@ -48,19 +49,19 @@ func run() int {
 
 	output := flag.Arg(0)
 	if output == "" {
-		glog.Fatal("Object store URI was empty")
+		glog.Error("Object store URI was empty")
 		return 1
 	}
 
 	uri, err := url.Parse(output)
 	if err != nil {
-		glog.Fatalf("Failed to parse URI: %s", err)
+		glog.Errorf("Failed to parse URI: %s", err)
 		return 1
 	}
 
 	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout)
 	if err != nil {
-		glog.Fatalf("Uploader failed for %s: %s", uri.Redacted(), err)
+		glog.Errorf("Uploader failed for %s: %s", uri.Redacted(), err)
 		return 1
 	}
 
@@ -73,7 +74,7 @@ func run() int {
 	if glog.V(5) {
 		err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri.Redacted()})
 		if err != nil {
-			glog.Fatal(err)
+			glog.Error(err)
 			return 1
 		}
 	}
