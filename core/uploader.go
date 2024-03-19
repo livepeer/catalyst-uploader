@@ -73,11 +73,12 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 			return nil, fmt.Errorf("failed to read file")
 		}
 
-		// To count how many bytes we are trying to read then write (upload) to s3 storage
-		teeReader := io.TeeReader(bytes.NewReader(fileContents), byteCounter)
-
 		var out *drivers.SaveDataOutput
 		err = backoff.Retry(func() error {
+			// To count how many bytes we are trying to read then write (upload) to s3 storage
+			teeReader := io.TeeReader(bytes.NewReader(fileContents), byteCounter)
+			byteCounter.Count = 0
+
 			out, err = session.SaveData(context.Background(), "", teeReader, fields, segmentWriteTimeout)
 			if err != nil {
 				glog.Errorf("failed upload attempt for %s (%d bytes): %v", outputURI.Redacted(), byteCounter.Count, err)
