@@ -42,6 +42,10 @@ func UploadRetryBackoff() backoff.BackOff {
 
 const segmentWriteTimeout = 5 * time.Minute
 
+var expiryField = map[string]string{
+	"Object-Expires": "+720h", // Objects will be deleted after 30 days
+}
+
 func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration) (*drivers.SaveDataOutput, error) {
 	output := outputURI.String()
 	storageDriver, err := drivers.ParseOSURL(output, true)
@@ -57,11 +61,7 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 	// here to allow us to have recording objects deleted after 7 days.
 	fields := &drivers.FileProperties{}
 	if strings.Contains(output, "gateway.storjshare.io/catalyst-recordings-com") {
-		fields = &drivers.FileProperties{
-			Metadata: map[string]string{
-				"Object-Expires": "+720h", // Objects will be deleted after 30 days
-			},
-		}
+		fields = &drivers.FileProperties{Metadata: expiryField}
 	}
 
 	byteCounter := &ByteCounter{}
@@ -182,7 +182,10 @@ func extractThumb(session drivers.OSSession, filename string, segment []byte) er
 		return fmt.Errorf("opening file failed: %w", err)
 	}
 	defer f.Close()
-	_, err = session.SaveData(context.Background(), "../latest.jpg", f, &drivers.FileProperties{CacheControl: "max-age=5"}, 10*time.Second)
+	_, err = session.SaveData(context.Background(), "../latest.jpg", f, &drivers.FileProperties{
+		CacheControl: "max-age=5",
+		Metadata:     expiryField,
+	}, 10*time.Second)
 	if err != nil {
 		return fmt.Errorf("saving thumbnail failed: %w", err)
 	}
