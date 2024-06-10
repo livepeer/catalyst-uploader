@@ -29,15 +29,15 @@ func (bc *ByteCounter) Write(p []byte) (n int, err error) {
 
 func newExponentialBackOffExecutor() *backoff.ExponentialBackOff {
 	backOff := backoff.NewExponentialBackOff()
-	backOff.InitialInterval = 10 * time.Second
-	backOff.MaxInterval = 1 * time.Minute
+	backOff.InitialInterval = 30 * time.Second
+	backOff.MaxInterval = 2 * time.Minute
 	backOff.MaxElapsedTime = 0 // don't impose a timeout as part of the retries
 
 	return backOff
 }
 
 func UploadRetryBackoff() backoff.BackOff {
-	return backoff.WithMaxRetries(newExponentialBackOffExecutor(), 7)
+	return backoff.WithMaxRetries(newExponentialBackOffExecutor(), 4)
 }
 
 const segmentWriteTimeout = 5 * time.Minute
