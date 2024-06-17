@@ -43,7 +43,7 @@ func UploadRetryBackoff() backoff.BackOff {
 const segmentWriteTimeout = 5 * time.Minute
 
 var expiryField = map[string]string{
-	"Object-Expires": "+360h", // Objects will be deleted after 15 days
+	"Object-Expires": "+168h", // Objects will be deleted after 7 days
 }
 
 func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration) (*drivers.SaveDataOutput, error) {
