@@ -69,7 +69,6 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 		fields = &drivers.FileProperties{Metadata: expiryField}
 	}
 
-	byteCounter := &ByteCounter{}
 	if strings.HasSuffix(output, ".ts") || strings.HasSuffix(output, ".mp4") {
 		// For segments we just write them in one go here and return early.
 		// (Otherwise the incremental write logic below caused issues with clipping since it results in partial segments being written.)
@@ -78,20 +77,9 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 			return nil, fmt.Errorf("failed to read file")
 		}
 
-		var out *drivers.SaveDataOutput
-		err = backoff.Retry(func() error {
-			// To count how many bytes we are trying to read then write (upload) to s3 storage
-			teeReader := io.TeeReader(bytes.NewReader(fileContents), byteCounter)
-			byteCounter.Count = 0
-
-			out, err = session.SaveData(context.Background(), "", teeReader, fields, segmentWriteTimeout)
-			if err != nil {
-				glog.Errorf("failed upload attempt for %s (%d bytes): %v", outputURI.Redacted(), byteCounter.Count, err)
-			}
-			return err
-		}, UploadRetryBackoff())
+		out, bytesWritten, err := uploadFile(outputURI, fileContents, fields, segmentWriteTimeout, true)
 		if err != nil {
-			return nil, fmt.Errorf("failed to upload video %s: (%d bytes) %w", outputURI.Redacted(), byteCounter.Count, err)
+			return nil, fmt.Errorf("failed to upload video %s: (%d bytes) %w", outputURI.Redacted(), bytesWritten, err)
 		}
 
 		if err = extractThumb(session, output, fileContents); err != nil {
@@ -125,7 +113,7 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 
 		// Only write the latest version of the data that's been piped in if enough time has elapsed since the last write
 		if lastWrite.Add(waitBetweenWrites).Before(time.Now()) {
-			if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, writeTimeout); err != nil {
+			if _, _, err := uploadFile(outputURI, fileContents, fields, writeTimeout, false); err != nil {
 				// Just log this error, since it'll effectively be retried after the next interval
 				glog.Errorf("Failed to write: %v", err)
 			} else {
@@ -139,12 +127,40 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 	}
 
 	// We have to do this final write, otherwise there might be final data that's arrived since the last periodic write
-	if _, err := session.SaveData(context.Background(), "", bytes.NewReader(fileContents), fields, writeTimeout); err != nil {
+	if _, _, err := uploadFile(outputURI, fileContents, fields, writeTimeout, false); err != nil {
 		// Don't ignore this error, since there won't be any further attempts to write
 		return nil, fmt.Errorf("failed to write final save: %w", err)
 	}
 	glog.Infof("Completed writing %s to storage", outputURI.Redacted())
 	return nil, nil
+}
+
+func uploadFile(outputURI *url.URL, fileContents []byte, fields *drivers.FileProperties, writeTimeout time.Duration, withRetries bool) (out *drivers.SaveDataOutput, bytesWritten int64, err error) {
+	driver, err := drivers.ParseOSURL(outputURI.String(), true)
+	if err != nil {
+		return nil, 0, err
+	}
+	session := driver.NewSession("")
+
+	var retryPolicy backoff.BackOff = &backoff.StopBackOff{} // no retries by default
+	if withRetries {
+		retryPolicy = UploadRetryBackoff()
+	}
+	err = backoff.Retry(func() error {
+		// To count how many bytes we are trying to read then write (upload) to s3 storage
+		byteCounter := &ByteCounter{}
+		teeReader := io.TeeReader(bytes.NewReader(fileContents), byteCounter)
+
+		out, err = session.SaveData(context.Background(), "", teeReader, fields, writeTimeout)
+		bytesWritten = byteCounter.Count
+
+		if err != nil {
+			glog.Errorf("failed upload attempt for %s (%d bytes): %v", outputURI.Redacted(), bytesWritten, err)
+		}
+		return err
+	}, retryPolicy)
+
+	return out, bytesWritten, err
 }
 
 func extractThumb(session drivers.OSSession, filename string, segment []byte) error {
