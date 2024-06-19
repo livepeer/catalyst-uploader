@@ -35,6 +35,7 @@ func run() int {
 	version := fs.Bool("version", false, "print application version")
 	describe := fs.Bool("j", false, "Describe supported storage services in JSON format and exit")
 	timeout := fs.Duration("t", 30*time.Second, "Upload timeout")
+	storageBackupURLs := jsonFlag[core.StorageBackupURLs](fs, "storage-backup-urls", `JSON array of {"primary":X,"backup":Y} objects with base storage URLs. If a file fails uploading to one of the primary storages (detected by prefix), it will fallback to the corresponding backup URL after having the prefix replaced`)
 
 	_ = fs.String("config", "", "config file (optional)")
 
@@ -105,4 +106,12 @@ func run() int {
 	}
 
 	return 0
+}
+
+func jsonFlag[T any](fs *flag.FlagSet, name string, usage string) T {
+	var value T
+	fs.Func(name, usage, func(s string) error {
+		return json.Unmarshal([]byte(s), &value)
+	})
+	return value
 }

@@ -46,6 +46,11 @@ var expiryField = map[string]string{
 	"Object-Expires": "+168h", // Objects will be deleted after 7 days
 }
 
+type StorageBackupURLs []struct {
+	Primary string `json:"primary"`
+	Backup  string `json:"backup"`
+}
+
 func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration) (*drivers.SaveDataOutput, error) {
 	output := outputURI.String()
 	storageDriver, err := drivers.ParseOSURL(output, true)
