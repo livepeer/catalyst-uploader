@@ -85,7 +85,7 @@ func run() int {
 		return 1
 	}
 
-	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout)
+	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout, storageBackupURLs)
 	if err != nil {
 		glog.Errorf("Uploader failed for %s: %s", uri.Redacted(), err)
 		return 1
