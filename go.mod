@@ -7,6 +7,7 @@ require (
 	github.com/golang/glog v1.1.0
 	github.com/google/uuid v1.3.0
 	github.com/livepeer/go-tools v0.3.6
+	github.com/peterbourgon/ff v1.7.1
 	github.com/stretchr/testify v1.8.4
 )
 
