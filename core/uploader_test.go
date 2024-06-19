@@ -35,7 +35,7 @@ func TestItWritesSlowInputIncrementally(t *testing.T) {
 	go func() {
 		u, err := url.Parse(outputFile.Name())
 		require.NoError(t, err)
-		_, err = Upload(slowReader, u, 100*time.Millisecond, time.Second)
+		_, err = Upload(slowReader, u, 100*time.Millisecond, time.Second, nil)
 		require.NoError(t, err, "")
 	}()
 

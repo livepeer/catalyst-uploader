@@ -29,11 +29,13 @@ func run() int {
 		glog.Error(err)
 		return 1
 	}
+	vFlag := flag.Lookup("v")
 	fs := flag.NewFlagSet("catalyst-uploader", flag.ExitOnError)
 
 	// cmd line args
 	version := fs.Bool("version", false, "print application version")
 	describe := fs.Bool("j", false, "Describe supported storage services in JSON format and exit")
+	verbosity := fs.String("v", "", "Log verbosity.  {4|5|6}")
 	timeout := fs.Duration("t", 30*time.Second, "Upload timeout")
 	storageBackupURLs := jsonFlag[core.StorageBackupURLs](fs, "storage-backup-urls", `JSON array of {"primary":X,"backup":Y} objects with base storage URLs. If a file fails uploading to one of the primary storages (detected by prefix), it will fallback to the corresponding backup URL after having the prefix replaced`)
 
@@ -67,6 +69,13 @@ func run() int {
 	if fs.NArg() == 0 {
 		glog.Error("Destination URI is not specified. See -j for usage.")
 		return 1
+	}
+
+	if *verbosity != "" {
+		err = vFlag.Value.Set(*verbosity)
+		if err != nil {
+			glog.Fatal(err)
+		}
 	}
 
 	// replace stdout to prevent any lib from writing debug output there
