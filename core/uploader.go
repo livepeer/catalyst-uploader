@@ -53,14 +53,6 @@ type StorageBackupURLs []struct {
 
 func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration) (*drivers.SaveDataOutput, error) {
 	output := outputURI.String()
-	storageDriver, err := drivers.ParseOSURL(output, true)
-	if err != nil {
-		return nil, err
-	}
-	session := storageDriver.NewSession("")
-	if err != nil {
-		return nil, err
-	}
 
 	// While we wait for storj to implement an easier method for global object deletion we are hacking something
 	// here to allow us to have recording objects deleted after 7 days.
@@ -82,7 +74,7 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 			return nil, fmt.Errorf("failed to upload video %s: (%d bytes) %w", outputURI.Redacted(), bytesWritten, err)
 		}
 
-		if err = extractThumb(session, output, fileContents); err != nil {
+		if err = extractThumb(outputURI, output, fileContents); err != nil {
 			glog.Errorf("extracting thumbnail failed for %s: %v", outputURI.Redacted(), err)
 		}
 		return out, nil
@@ -163,7 +155,7 @@ func uploadFile(outputURI *url.URL, fileContents []byte, fields *drivers.FilePro
 	return out, bytesWritten, err
 }
 
-func extractThumb(session drivers.OSSession, filename string, segment []byte) error {
+func extractThumb(outputURI *url.URL, filename string, segment []byte) error {
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "thumb-*")
 	if err != nil {
 		return fmt.Errorf("temp file creation failed: %w", err)
@@ -203,10 +195,16 @@ func extractThumb(session drivers.OSSession, filename string, segment []byte) er
 		return fmt.Errorf("opening file failed: %w", err)
 	}
 	defer f.Close()
-	_, err = session.SaveData(context.Background(), "../latest.jpg", f, &drivers.FileProperties{
+	thumbData, err := io.ReadAll(f)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	thumbURL := outputURI.JoinPath("../latest.jpg")
+	_, _, err = uploadFile(thumbURL, thumbData, &drivers.FileProperties{
 		CacheControl: "max-age=5",
 		Metadata:     expiryField,
-	}, 10*time.Second)
+	}, 10*time.Second, true)
 	if err != nil {
 		return fmt.Errorf("saving thumbnail failed: %w", err)
 	}
