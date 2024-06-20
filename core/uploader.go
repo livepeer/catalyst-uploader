@@ -46,12 +46,7 @@ var expiryField = map[string]string{
 	"Object-Expires": "+168h", // Objects will be deleted after 7 days
 }
 
-type StorageBackupURLs []struct {
-	Primary string `json:"primary"`
-	Backup  string `json:"backup"`
-}
-
-func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration, storageBackupURLs StorageBackupURLs) (*drivers.SaveDataOutput, error) {
+func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration, storageBackupURLs map[string]string) (*drivers.SaveDataOutput, error) {
 	if strings.HasSuffix(outputURI.Path, ".ts") || strings.HasSuffix(outputURI.Path, ".mp4") {
 		// For segments we just write them in one go here and return early.
 		// (Otherwise the incremental write logic below caused issues with clipping since it results in partial segments being written.)
@@ -118,7 +113,7 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 	return nil, nil
 }
 
-func uploadFileWithBackup(outputURI *url.URL, fileContents []byte, fields *drivers.FileProperties, writeTimeout time.Duration, withRetries bool, storageBackupURLs StorageBackupURLs) (out *drivers.SaveDataOutput, bytesWritten int64, err error) {
+func uploadFileWithBackup(outputURI *url.URL, fileContents []byte, fields *drivers.FileProperties, writeTimeout time.Duration, withRetries bool, storageBackupURLs map[string]string) (out *drivers.SaveDataOutput, bytesWritten int64, err error) {
 	out, bytesWritten, primaryErr := uploadFile(outputURI, fileContents, fields, writeTimeout, withRetries)
 	if primaryErr == nil {
 		return out, bytesWritten, nil
@@ -134,11 +129,11 @@ func uploadFileWithBackup(outputURI *url.URL, fileContents []byte, fields *drive
 	return uploadFile(backupURI, fileContents, fields, writeTimeout, withRetries)
 }
 
-func buildBackupURI(outputURI *url.URL, storageBackupURLs StorageBackupURLs) (*url.URL, error) {
+func buildBackupURI(outputURI *url.URL, storageBackupURLs map[string]string) (*url.URL, error) {
 	outputURIStr := outputURI.String()
-	for _, strj := range storageBackupURLs {
-		if strings.HasPrefix(outputURIStr, strj.Primary) {
-			backupStr := strings.Replace(outputURIStr, strj.Primary, strj.Backup, 1)
+	for primary, backup := range storageBackupURLs {
+		if strings.HasPrefix(outputURIStr, primary) {
+			backupStr := strings.Replace(outputURIStr, primary, backup, 1)
 			return url.Parse(backupStr)
 		}
 	}
@@ -185,7 +180,7 @@ func uploadFile(outputURI *url.URL, fileContents []byte, fields *drivers.FilePro
 	return out, bytesWritten, err
 }
 
-func extractThumb(outputURI *url.URL, segment []byte, storageBackupURLs StorageBackupURLs) error {
+func extractThumb(outputURI *url.URL, segment []byte, storageBackupURLs map[string]string) error {
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "thumb-*")
 	if err != nil {
 		return fmt.Errorf("temp file creation failed: %w", err)
