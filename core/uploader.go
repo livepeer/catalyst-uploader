@@ -150,10 +150,12 @@ func uploadFile(outputURI *url.URL, fileContents []byte, fields *drivers.FilePro
 	// While we wait for storj to implement an easier method for global object deletion we are hacking something
 	// here to allow us to have recording objects deleted after 7 days.
 	if strings.Contains(outputStr, "gateway.storjshare.io/catalyst-recordings-com") {
-		fields = newFileProperties(fields)
-		for k, v := range expiryField {
-			fields.Metadata[k] = v
+		var storjFields drivers.FileProperties
+		if fields != nil {
+			storjFields = *fields
 		}
+		storjFields.Metadata = expiryField
+		fields = &storjFields
 	}
 
 	driver, err := drivers.ParseOSURL(outputStr, true)
@@ -235,16 +237,4 @@ func extractThumb(outputURI *url.URL, segment []byte, storageBackupURLs StorageB
 		return fmt.Errorf("saving thumbnail failed: %w", err)
 	}
 	return nil
-}
-
-func newFileProperties(base *drivers.FileProperties) *drivers.FileProperties {
-	if base == nil {
-		return &drivers.FileProperties{}
-	}
-	copy := *base
-	copy.Metadata = map[string]string{}
-	for k, v := range base.Metadata {
-		copy.Metadata[k] = v
-	}
-	return &copy
 }
