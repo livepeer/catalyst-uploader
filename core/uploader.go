@@ -57,20 +57,31 @@ var expiryField = map[string]string{
 }
 
 func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration, storageFallbackURLs map[string]string) (*drivers.SaveDataOutput, error) {
-	if strings.HasSuffix(outputURI.Path, ".ts") || strings.HasSuffix(outputURI.Path, ".mp4") {
+	ext := filepath.Ext(outputURI.Path)
+	inputFile, err := os.CreateTemp("", "upload-*"+ext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write to temp file: %w", err)
+	}
+	inputFileName := inputFile.Name()
+	defer os.Remove(inputFileName)
+
+	if ext == ".ts" || ext == ".mp4" {
 		// For segments we just write them in one go here and return early.
 		// (Otherwise the incremental write logic below caused issues with clipping since it results in partial segments being written.)
-		fileContents, err := io.ReadAll(input)
+		_, err = io.Copy(inputFile, input)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file")
+			return nil, fmt.Errorf("failed to write to temp file: %w", err)
+		}
+		if err := inputFile.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close input file: %w", err)
 		}
 
-		out, bytesWritten, err := uploadFileWithBackup(outputURI, fileContents, nil, segmentWriteTimeout, true, storageFallbackURLs)
+		out, bytesWritten, err := uploadFileWithBackup(outputURI, inputFileName, nil, segmentWriteTimeout, true, storageFallbackURLs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upload video %s: (%d bytes) %w", outputURI.Redacted(), bytesWritten, err)
 		}
 
-		if err = extractThumb(outputURI, fileContents, storageFallbackURLs); err != nil {
+		if err = extractThumb(outputURI, inputFileName, storageFallbackURLs); err != nil {
 			glog.Errorf("extracting thumbnail failed for %s: %v", outputURI.Redacted(), err)
 		}
 		return out, nil
@@ -78,8 +89,11 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 
 	// For the manifest files we want a very short cache ttl as the files are updating every few seconds
 	fields := &drivers.FileProperties{CacheControl: "max-age=1"}
-	var fileContents []byte
 	var lastWrite = time.Now()
+	// Keep the file handle closed while we wait for input data
+	if err := inputFile.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close input file: %w", err)
+	}
 
 	scanner := bufio.NewScanner(input)
 
@@ -97,11 +111,21 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 
 	for scanner.Scan() {
 		b := scanner.Bytes()
-		fileContents = append(fileContents, b...)
+
+		inputFile, err = os.OpenFile(inputFileName, os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open file: %w", err)
+		}
+		if _, err := inputFile.Write(b); err != nil {
+			return nil, fmt.Errorf("failed to append to input file: %w", err)
+		}
+		if err := inputFile.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close input file: %w", err)
+		}
 
 		// Only write the latest version of the data that's been piped in if enough time has elapsed since the last write
 		if lastWrite.Add(waitBetweenWrites).Before(time.Now()) {
-			if _, _, err := uploadFileWithBackup(outputURI, fileContents, fields, writeTimeout, false, storageFallbackURLs); err != nil {
+			if _, _, err := uploadFileWithBackup(outputURI, inputFileName, fields, writeTimeout, false, storageFallbackURLs); err != nil {
 				// Just log this error, since it'll effectively be retried after the next interval
 				glog.Errorf("Failed to write: %v", err)
 			} else {
@@ -115,7 +139,7 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 	}
 
 	// We have to do this final write, otherwise there might be final data that's arrived since the last periodic write
-	if _, _, err := uploadFileWithBackup(outputURI, fileContents, fields, writeTimeout, true, storageFallbackURLs); err != nil {
+	if _, _, err := uploadFileWithBackup(outputURI, inputFileName, fields, writeTimeout, false, storageFallbackURLs); err != nil {
 		// Don't ignore this error, since there won't be any further attempts to write
 		return nil, fmt.Errorf("failed to write final save: %w", err)
 	}
@@ -123,14 +147,14 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 	return nil, nil
 }
 
-func uploadFileWithBackup(outputURI *url.URL, fileContents []byte, fields *drivers.FileProperties, writeTimeout time.Duration, withRetries bool, storageFallbackURLs map[string]string) (out *drivers.SaveDataOutput, bytesWritten int64, err error) {
+func uploadFileWithBackup(outputURI *url.URL, fileName string, fields *drivers.FileProperties, writeTimeout time.Duration, withRetries bool, storageFallbackURLs map[string]string) (out *drivers.SaveDataOutput, bytesWritten int64, err error) {
 	retryPolicy := NoRetries()
 	if withRetries {
 		retryPolicy = UploadRetryBackoff()
 	}
 	err = backoff.Retry(func() error {
 		var primaryErr error
-		out, bytesWritten, primaryErr = uploadFile(outputURI, fileContents, fields, writeTimeout, withRetries)
+		out, bytesWritten, primaryErr = uploadFile(outputURI, fileName, fields, writeTimeout, withRetries)
 		if primaryErr == nil {
 			return nil
 		}
@@ -142,7 +166,7 @@ func uploadFileWithBackup(outputURI *url.URL, fileContents []byte, fields *drive
 		}
 		glog.Warningf("Primary upload failed, uploading to backupURL=%s primaryErr=%q", backupURI.Redacted(), primaryErr)
 
-		out, bytesWritten, err = uploadFile(backupURI, fileContents, fields, writeTimeout, withRetries)
+		out, bytesWritten, err = uploadFile(backupURI, fileName, fields, writeTimeout, withRetries)
 		if err == nil {
 			return nil
 		}
@@ -162,7 +186,7 @@ func buildBackupURI(outputURI *url.URL, storageFallbackURLs map[string]string) (
 	return nil, fmt.Errorf("no backup URL found for %s", outputURI.Redacted())
 }
 
-func uploadFile(outputURI *url.URL, fileContents []byte, fields *drivers.FileProperties, writeTimeout time.Duration, withRetries bool) (out *drivers.SaveDataOutput, bytesWritten int64, err error) {
+func uploadFile(outputURI *url.URL, fileName string, fields *drivers.FileProperties, writeTimeout time.Duration, withRetries bool) (out *drivers.SaveDataOutput, bytesWritten int64, err error) {
 	outputStr := outputURI.String()
 	// While we wait for storj to implement an easier method for global object deletion we are hacking something
 	// here to allow us to have recording objects deleted after 7 days.
@@ -186,9 +210,15 @@ func uploadFile(outputURI *url.URL, fileContents []byte, fields *drivers.FilePro
 		retryPolicy = SingleRequestRetryBackoff()
 	}
 	err = backoff.Retry(func() error {
+		file, err := os.Open(fileName)
+		if err != nil {
+			return fmt.Errorf("failed to open file: %w", err)
+		}
+		defer file.Close()
+
 		// To count how many bytes we are trying to read then write (upload) to s3 storage
 		byteCounter := &ByteCounter{}
-		teeReader := io.TeeReader(bytes.NewReader(fileContents), byteCounter)
+		teeReader := io.TeeReader(file, byteCounter)
 
 		out, err = session.SaveData(context.Background(), "", teeReader, fields, writeTimeout)
 		bytesWritten = byteCounter.Count
@@ -202,20 +232,16 @@ func uploadFile(outputURI *url.URL, fileContents []byte, fields *drivers.FilePro
 	return out, bytesWritten, err
 }
 
-func extractThumb(outputURI *url.URL, segment []byte, storageFallbackURLs map[string]string) error {
+func extractThumb(outputURI *url.URL, segmentFileName string, storageFallbackURLs map[string]string) error {
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "thumb-*")
 	if err != nil {
 		return fmt.Errorf("temp file creation failed: %w", err)
 	}
 	defer os.RemoveAll(tmpDir)
 	outFile := filepath.Join(tmpDir, "out.jpg")
-	inFile := filepath.Join(tmpDir, filepath.Base(outputURI.Path))
-	if err = os.WriteFile(inFile, segment, 0644); err != nil {
-		return fmt.Errorf("failed to write input file: %w", err)
-	}
 
 	args := []string{
-		"-i", inFile,
+		"-i", segmentFileName,
 		"-ss", "00:00:00",
 		"-vframes", "1",
 		"-vf", "scale=854:480:force_original_aspect_ratio=decrease",
@@ -237,16 +263,6 @@ func extractThumb(outputURI *url.URL, segment []byte, storageFallbackURLs map[st
 		return fmt.Errorf("ffmpeg failed[%s] [%s]: %w", outputBuf.String(), stdErr.String(), err)
 	}
 
-	f, err := os.Open(outFile)
-	if err != nil {
-		return fmt.Errorf("opening file failed: %w", err)
-	}
-	defer f.Close()
-	thumbData, err := io.ReadAll(f)
-	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
-	}
-
 	// two thumbs, one at session level, the other at stream level
 	thumbURLs := []*url.URL{outputURI.JoinPath("../latest.jpg"), outputURI.JoinPath("../../../latest.jpg")}
 	fields := &drivers.FileProperties{CacheControl: "max-age=5"}
@@ -255,7 +271,7 @@ func extractThumb(outputURI *url.URL, segment []byte, storageFallbackURLs map[st
 	for _, thumbURL := range thumbURLs {
 		thumbURL := thumbURL
 		errGroup.Go(func() error {
-			_, _, err = uploadFileWithBackup(thumbURL, thumbData, fields, 10*time.Second, true, storageFallbackURLs)
+			_, _, err = uploadFileWithBackup(thumbURL, outFile, fields, 10*time.Second, true, storageFallbackURLs)
 			if err != nil {
 				return fmt.Errorf("saving thumbnail failed: %w", err)
 			}
