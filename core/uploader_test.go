@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -61,6 +62,75 @@ func TestItWritesSlowInputIncrementally(t *testing.T) {
 	require.Equal(t, 0, len(expectedLines), "Expected to have received each manifest line sequentially")
 }
 
+func TestUploadFileWithBackup(t *testing.T) {
+	dir, err := os.MkdirTemp(os.TempDir(), "TestUploadFileWithBackup-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	fakeStorage := "s3+https://fake.service.livepeer.com/bucket/"
+	backupStorage := filepath.Join(dir, "backup") + "/"
+	fakeOutput := fakeStorage + "hls/123/file.txt"
+	expectedOutFile := backupStorage + "hls/123/file.txt"
+
+	storageFallbackURLs := map[string]string{
+		fakeStorage: "file://" + backupStorage,
+	}
+	out, written, err := uploadFileWithBackup(mustParseURL(fakeOutput), []byte("test"), nil, 0, false, storageFallbackURLs)
+	require.NoError(t, err)
+	require.Equal(t, expectedOutFile, out.URL)
+	require.Equal(t, int64(4), written)
+
+	b, err := os.ReadFile(expectedOutFile)
+	require.NoError(t, err)
+	require.Equal(t, []byte("test"), b)
+}
+
+func TestBuildBackupURI(t *testing.T) {
+	storageFallbackURLs := map[string]string{
+		"http://localhost:8888/":                             "http://localhost:8888/os-recordings-backup/",
+		"s3+https://user:password@remote.storage.io/bucket/": "s3+https://resu:drowssap@reliable.storage.com/backup-bucket/",
+	}
+	testCases := []struct {
+		name        string
+		input       string
+		expectedErr string
+		expected    string
+	}{
+		{
+			name:     "http",
+			input:    "http://localhost:8888/folder/",
+			expected: "http://localhost:8888/os-recordings-backup/folder/",
+		},
+		{
+			name:     "s3",
+			input:    "s3+https://user:password@remote.storage.io/bucket/",
+			expected: "s3+https://resu:drowssap@reliable.storage.com/backup-bucket/",
+		},
+		{
+			name:     "s3 with nested file",
+			input:    "s3+https://user:password@remote.storage.io/bucket/folder/file.ts",
+			expected: "s3+https://resu:drowssap@reliable.storage.com/backup-bucket/folder/file.ts",
+		},
+		{
+			name:        "no backup URL",
+			input:       "s3+https://another.storage.fish/bucket/folder/file.ts",
+			expectedErr: "no backup URL",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require := require.New(t)
+			uri, err := buildBackupURI(mustParseURL(tc.input), storageFallbackURLs)
+			if tc.expectedErr != "" {
+				require.ErrorContains(err, tc.expectedErr)
+				return
+			}
+			require.NoError(err)
+			require.Equal(tc.expected, uri.String())
+		})
+	}
+}
+
 // SlowReader outputs the lines of text with a delay before each one
 type SlowReader struct {
 	lines    []string
@@ -77,4 +147,12 @@ func (sr *SlowReader) Read(b []byte) (n int, err error) {
 	}
 
 	return 0, io.EOF
+}
+
+func mustParseURL(s string) *url.URL {
+	u, err := url.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
 }
