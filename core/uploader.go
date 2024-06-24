@@ -105,7 +105,7 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 	}
 
 	// We have to do this final write, otherwise there might be final data that's arrived since the last periodic write
-	if _, _, err := uploadFileWithBackup(outputURI, fileContents, fields, writeTimeout, false, storageFallbackURLs); err != nil {
+	if _, _, err := uploadFileWithBackup(outputURI, fileContents, fields, writeTimeout, true, storageFallbackURLs); err != nil {
 		// Don't ignore this error, since there won't be any further attempts to write
 		return nil, fmt.Errorf("failed to write final save: %w", err)
 	}
