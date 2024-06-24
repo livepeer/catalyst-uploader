@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -165,4 +166,26 @@ func TestFormatsE2E(t *testing.T) {
 		require.Equal(t, h.Description(), driverDescr.Drivers[i].Description)
 		require.Equal(t, h.UriSchemes(), driverDescr.Drivers[i].UriSchemes)
 	}
+}
+
+func TestCommaMap(t *testing.T) {
+	fs := flag.NewFlagSet("cli-test", flag.PanicOnError)
+	single := CommaMapFlag(fs, "single", "")
+	multi := CommaMapFlag(fs, "multi", "")
+	setEmpty := CommaMapFlag(fs, "empty", "")
+	err := fs.Parse([]string{
+		"-single=one=uno",
+		"-multi=one=uno,two=dos,three=tres",
+		"-empty=",
+	})
+	require.NoError(t, err)
+	require.Equal(t, *single, map[string]string{"one": "uno"})
+	require.Equal(t, *multi, map[string]string{"one": "uno", "two": "dos", "three": "tres"})
+	require.Equal(t, *setEmpty, map[string]string{})
+
+	fs2 := flag.NewFlagSet("cli-test", flag.ContinueOnError)
+	wrong := CommaMapFlag(fs2, "wrong", "")
+	err = fs2.Parse([]string{"-wrong=format"})
+	require.Error(t, err)
+	require.Equal(t, *wrong, map[string]string{})
 }
