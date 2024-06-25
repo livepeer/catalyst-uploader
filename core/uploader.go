@@ -162,7 +162,7 @@ func uploadFileWithBackup(outputURI *url.URL, fileName string, fields *drivers.F
 		backupURI, err := buildBackupURI(outputURI, storageFallbackURLs)
 		if err != nil {
 			glog.Errorf("failed to build backup URL: %v", err)
-			return err
+			return primaryErr
 		}
 		glog.Warningf("Primary upload failed, uploading to backupURL=%s primaryErr=%q", backupURI.Redacted(), primaryErr)
 
