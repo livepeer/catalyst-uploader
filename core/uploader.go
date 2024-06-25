@@ -32,7 +32,7 @@ func newExponentialBackOffExecutor() *backoff.ExponentialBackOff {
 	backOff.InitialInterval = 30 * time.Second
 	backOff.MaxInterval = 2 * time.Minute
 	backOff.MaxElapsedTime = 0 // don't impose a timeout as part of the retries
-
+	backOff.Reset()
 	return backOff
 }
 
