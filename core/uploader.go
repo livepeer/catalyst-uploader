@@ -232,6 +232,7 @@ func extractThumb(outputURI *url.URL, segment []byte, storageFallbackURLs map[st
 	errGroup := &errgroup.Group{}
 
 	for _, thumbURL := range thumbURLs {
+		thumbURL := thumbURL
 		errGroup.Go(func() error {
 			_, _, err = uploadFileWithBackup(thumbURL, thumbData, fields, 10*time.Second, true, storageFallbackURLs)
 			if err != nil {
