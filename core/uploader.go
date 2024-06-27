@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"io"
 	"net/url"
 	"os"
@@ -225,11 +226,19 @@ func extractThumb(outputURI *url.URL, segment []byte, storageFallbackURLs map[st
 		return fmt.Errorf("failed to read file: %w", err)
 	}
 
-	thumbURL := outputURI.JoinPath("../latest.jpg")
+	// two thumbs, one at session level, the other at stream level
+	thumbURLs := []*url.URL{outputURI.JoinPath("../latest.jpg"), outputURI.JoinPath("../../../latest.jpg")}
 	fields := &drivers.FileProperties{CacheControl: "max-age=5"}
-	_, _, err = uploadFileWithBackup(thumbURL, thumbData, fields, 10*time.Second, true, storageFallbackURLs)
-	if err != nil {
-		return fmt.Errorf("saving thumbnail failed: %w", err)
+	errGroup := &errgroup.Group{}
+
+	for _, thumbURL := range thumbURLs {
+		errGroup.Go(func() error {
+			_, _, err = uploadFileWithBackup(thumbURL, thumbData, fields, 10*time.Second, true, storageFallbackURLs)
+			if err != nil {
+				return fmt.Errorf("saving thumbnail failed: %w", err)
+			}
+			return nil
+		})
 	}
-	return nil
+	return errGroup.Wait()
 }
