@@ -40,7 +40,11 @@ func run() int {
 	timeout := fs.Duration("t", 30*time.Second, "Upload timeout")
 	storageFallbackURLs := CommaMapFlag(fs, "storage-fallback-urls", `Comma-separated map of primary to backup storage URLs. If a file fails uploading to one of the primary storages (detected by prefix), it will fallback to the corresponding backup URL after having the prefix replaced`)
 
-	_ = fs.String("config", "", "config file (optional)")
+	defaultConfigFile := "/etc/livepeer/catalyst_uploader.conf"
+	if _, err := os.Stat(defaultConfigFile); os.IsNotExist(err) {
+		defaultConfigFile = ""
+	}
+	_ = fs.String("config", defaultConfigFile, "config file (optional)")
 
 	err = ff.Parse(fs, os.Args[1:],
 		ff.WithConfigFileFlag("config"),
