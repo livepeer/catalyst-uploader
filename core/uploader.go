@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"net/url"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/golang/glog"
@@ -38,7 +39,7 @@ func newExponentialBackOffExecutor() *backoff.ExponentialBackOff {
 }
 
 func UploadRetryBackoff() backoff.BackOff {
-	return backoff.WithMaxRetries(newExponentialBackOffExecutor(), 4)
+	return backoff.WithMaxRetries(newExponentialBackOffExecutor(), 1)
 }
 
 const segmentWriteTimeout = 5 * time.Minute
