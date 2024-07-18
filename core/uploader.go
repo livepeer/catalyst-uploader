@@ -39,7 +39,7 @@ func newExponentialBackOffExecutor() *backoff.ExponentialBackOff {
 }
 
 func UploadRetryBackoff() backoff.BackOff {
-	return backoff.WithMaxRetries(newExponentialBackOffExecutor(), 1)
+	return backoff.WithMaxRetries(newExponentialBackOffExecutor(), 2)
 }
 
 const segmentWriteTimeout = 5 * time.Minute
