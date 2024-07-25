@@ -67,6 +67,9 @@ func TestUploadFileWithBackup(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 
+	testFile := filepath.Join(dir, "input.txt")
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+
 	fakeStorage := "s3+https://fake.service.livepeer.com/bucket/"
 	backupStorage := filepath.Join(dir, "backup") + "/"
 	fakeOutput := fakeStorage + "hls/123/file.txt"
@@ -75,7 +78,7 @@ func TestUploadFileWithBackup(t *testing.T) {
 	storageFallbackURLs := map[string]string{
 		fakeStorage: "file://" + backupStorage,
 	}
-	out, written, err := uploadFileWithBackup(mustParseURL(fakeOutput), []byte("test"), nil, 0, false, storageFallbackURLs)
+	out, written, err := uploadFileWithBackup(mustParseURL(fakeOutput), testFile, nil, 0, false, storageFallbackURLs)
 	require.NoError(t, err)
 	require.Equal(t, expectedOutFile, out.URL)
 	require.Equal(t, int64(4), written)
