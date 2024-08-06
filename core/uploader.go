@@ -188,7 +188,7 @@ func extractThumb(outputURI *url.URL, segment []byte, storageFallbackURLs map[st
 		return fmt.Errorf("temp file creation failed: %w", err)
 	}
 	defer os.RemoveAll(tmpDir)
-	outFile := filepath.Join(tmpDir, "out.jpg")
+	outFile := filepath.Join(tmpDir, "out.png")
 	inFile := filepath.Join(tmpDir, filepath.Base(outputURI.Path))
 	if err = os.WriteFile(inFile, segment, 0644); err != nil {
 		return fmt.Errorf("failed to write input file: %w", err)
@@ -198,7 +198,7 @@ func extractThumb(outputURI *url.URL, segment []byte, storageFallbackURLs map[st
 		"-i", inFile,
 		"-ss", "00:00:00",
 		"-vframes", "1",
-		"-vf", "scale=854:480:force_original_aspect_ratio=decrease",
+		"-vf", "scale=640:360:force_original_aspect_ratio=decrease",
 		"-y",
 		outFile,
 	}
@@ -228,7 +228,7 @@ func extractThumb(outputURI *url.URL, segment []byte, storageFallbackURLs map[st
 	}
 
 	// two thumbs, one at session level, the other at stream level
-	thumbURLs := []*url.URL{outputURI.JoinPath("../latest.jpg"), outputURI.JoinPath("../../../latest.jpg")}
+	thumbURLs := []*url.URL{outputURI.JoinPath("../latest.png"), outputURI.JoinPath("../../../latest.png")}
 	fields := &drivers.FileProperties{CacheControl: "max-age=5"}
 	errGroup := &errgroup.Group{}
 
