@@ -99,6 +99,7 @@ func run() int {
 		return 1
 	}
 
+	start := time.Now()
 	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout, *storageFallbackURLs)
 	if err != nil {
 		glog.Errorf("Uploader failed for %s: %s", uri.Redacted(), err)
@@ -109,7 +110,7 @@ func run() int {
 	if out != nil {
 		respHeaders = out.UploaderResponseHeaders
 	}
-	glog.Infof("Uploader succeeded for %s. storageRequestID=%s Etag=%s", uri.Redacted(), respHeaders.Get("X-Amz-Request-Id"), respHeaders.Get("Etag"))
+	glog.Infof("Uploader succeeded for %s. storageRequestID=%s Etag=%s timeTaken=%vms", uri.Redacted(), respHeaders.Get("X-Amz-Request-Id"), respHeaders.Get("Etag"), time.Since(start).Milliseconds())
 	// success, write uploaded file details to stdout
 	if glog.V(5) {
 		err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri.Redacted()})

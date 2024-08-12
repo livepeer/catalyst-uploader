@@ -13,11 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/cenkalti/backoff/v4"
 	"github.com/golang/glog"
 	"github.com/livepeer/go-tools/drivers"
+	"golang.org/x/sync/errgroup"
 )
 
 type ByteCounter struct {
@@ -43,7 +42,7 @@ func NoRetries() backoff.BackOff {
 }
 
 func UploadRetryBackoff() backoff.BackOff {
-	return newExponentialBackOffExecutor(2*time.Minute, 5*time.Minute, 1*time.Hour)
+	return newExponentialBackOffExecutor(30*time.Second, 4*time.Minute, 15*time.Minute)
 }
 
 func SingleRequestRetryBackoff() backoff.BackOff {
