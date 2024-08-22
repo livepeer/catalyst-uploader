@@ -39,6 +39,7 @@ func run() int {
 	verbosity := fs.String("v", "", "Log verbosity.  {4|5|6}")
 	timeout := fs.Duration("t", 30*time.Second, "Upload timeout")
 	storageFallbackURLs := CommaMapFlag(fs, "storage-fallback-urls", `Comma-separated map of primary to backup storage URLs. If a file fails uploading to one of the primary storages (detected by prefix), it will fallback to the corresponding backup URL after having the prefix replaced`)
+	segTimeout := fs.Duration("segment-timeout", 5*time.Minute, "Segment write timeout")
 
 	defaultConfigFile := "/etc/livepeer/catalyst_uploader.conf"
 	if _, err := os.Stat(defaultConfigFile); os.IsNotExist(err) {
@@ -99,7 +100,8 @@ func run() int {
 		return 1
 	}
 
-	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout, *storageFallbackURLs)
+	start := time.Now()
+	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout, *storageFallbackURLs, *segTimeout)
 	if err != nil {
 		glog.Errorf("Uploader failed for %s: %s", uri.Redacted(), err)
 		return 1
@@ -109,7 +111,7 @@ func run() int {
 	if out != nil {
 		respHeaders = out.UploaderResponseHeaders
 	}
-	glog.Infof("Uploader succeeded for %s. storageRequestID=%s Etag=%s", uri.Redacted(), respHeaders.Get("X-Amz-Request-Id"), respHeaders.Get("Etag"))
+	glog.Infof("Uploader succeeded for %s. storageRequestID=%s Etag=%s timeTaken=%vms", uri.Redacted(), respHeaders.Get("X-Amz-Request-Id"), respHeaders.Get("Etag"), time.Since(start).Milliseconds())
 	// success, write uploaded file details to stdout
 	if glog.V(5) {
 		err = json.NewEncoder(stdout).Encode(map[string]string{"uri": uri.Redacted()})
