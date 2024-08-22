@@ -39,6 +39,7 @@ func run() int {
 	verbosity := fs.String("v", "", "Log verbosity.  {4|5|6}")
 	timeout := fs.Duration("t", 30*time.Second, "Upload timeout")
 	storageFallbackURLs := CommaMapFlag(fs, "storage-fallback-urls", `Comma-separated map of primary to backup storage URLs. If a file fails uploading to one of the primary storages (detected by prefix), it will fallback to the corresponding backup URL after having the prefix replaced`)
+	segTimeout := fs.Duration("segment-timeout", 5*time.Minute, "Segment write timeout")
 
 	defaultConfigFile := "/etc/livepeer/catalyst_uploader.conf"
 	if _, err := os.Stat(defaultConfigFile); os.IsNotExist(err) {
@@ -100,7 +101,7 @@ func run() int {
 	}
 
 	start := time.Now()
-	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout, *storageFallbackURLs)
+	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout, *storageFallbackURLs, *segTimeout)
 	if err != nil {
 		glog.Errorf("Uploader failed for %s: %s", uri.Redacted(), err)
 		return 1
