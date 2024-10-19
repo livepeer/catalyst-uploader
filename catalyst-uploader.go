@@ -40,6 +40,8 @@ func run() int {
 	timeout := fs.Duration("t", 30*time.Second, "Upload timeout")
 	storageFallbackURLs := CommaMapFlag(fs, "storage-fallback-urls", `Comma-separated map of primary to backup storage URLs. If a file fails uploading to one of the primary storages (detected by prefix), it will fallback to the corresponding backup URL after having the prefix replaced`)
 	segTimeout := fs.Duration("segment-timeout", 5*time.Minute, "Segment write timeout")
+	disableRecording := CommaSliceFlag(fs, "disable-recording", `Comma-separated list of playbackIDs to disable recording for`)
+	disableThumbs := CommaSliceFlag(fs, "disable-thumbs", `Comma-separated list of playbackIDs to disable thumbs for`)
 
 	defaultConfigFile := "/etc/livepeer/catalyst_uploader.conf"
 	if _, err := os.Stat(defaultConfigFile); os.IsNotExist(err) {
@@ -100,8 +102,15 @@ func run() int {
 		return 1
 	}
 
+	for _, playbackID := range *disableRecording {
+		if strings.Contains(uri.Path, playbackID) {
+			glog.Errorf("Uploader disabled for %s", uri.Redacted())
+			return 0
+		}
+	}
+
 	start := time.Now()
-	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout, *storageFallbackURLs, *segTimeout)
+	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout, *storageFallbackURLs, *segTimeout, *disableThumbs)
 	if err != nil {
 		glog.Errorf("Uploader failed for %s: %s", uri.Redacted(), err)
 		return 1
@@ -122,6 +131,20 @@ func run() int {
 	}
 
 	return 0
+}
+
+// handles -foo=value1,value2,value3
+func CommaSliceFlag(fs *flag.FlagSet, name string, usage string) *[]string {
+	var dest []string
+	fs.Func(name, usage, func(s string) error {
+		split := strings.Split(s, ",")
+		if len(split) == 1 && split[0] == "" {
+			return nil
+		}
+		dest = split
+		return nil
+	})
+	return &dest
 }
 
 // handles -foo=key1=value1,key2=value2

@@ -53,7 +53,7 @@ var expiryField = map[string]string{
 	"Object-Expires": "+168h", // Objects will be deleted after 7 days
 }
 
-func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration, storageFallbackURLs map[string]string, segTimeout time.Duration) (*drivers.SaveDataOutput, error) {
+func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration, storageFallbackURLs map[string]string, segTimeout time.Duration, disableThumbs []string) (*drivers.SaveDataOutput, error) {
 	ext := filepath.Ext(outputURI.Path)
 	inputFile, err := os.CreateTemp("", "upload-*"+ext)
 	if err != nil {
@@ -78,7 +78,7 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 			return nil, fmt.Errorf("failed to upload video %s: (%d bytes) %w", outputURI.Redacted(), bytesWritten, err)
 		}
 
-		if err = extractThumb(outputURI, inputFileName, storageFallbackURLs); err != nil {
+		if err = extractThumb(outputURI, inputFileName, storageFallbackURLs, disableThumbs); err != nil {
 			glog.Errorf("extracting thumbnail failed for %s: %v", outputURI.Redacted(), err)
 		}
 		return out, nil
@@ -229,7 +229,14 @@ func uploadFile(outputURI *url.URL, fileName string, fields *drivers.FilePropert
 	return out, bytesWritten, err
 }
 
-func extractThumb(outputURI *url.URL, segmentFileName string, storageFallbackURLs map[string]string) error {
+func extractThumb(outputURI *url.URL, segmentFileName string, storageFallbackURLs map[string]string, disableThumbs []string) error {
+	for _, playbackID := range disableThumbs {
+		if strings.Contains(outputURI.Path, playbackID) {
+			glog.Infof("Thumbnails disabled for %s", outputURI.Redacted())
+			return nil
+		}
+	}
+
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "thumb-*")
 	if err != nil {
 		return fmt.Errorf("temp file creation failed: %w", err)
