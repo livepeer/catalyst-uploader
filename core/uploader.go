@@ -53,7 +53,7 @@ var expiryField = map[string]string{
 	"Object-Expires": "+168h", // Objects will be deleted after 7 days
 }
 
-func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration, storageFallbackURLs map[string]string, segTimeout time.Duration, disableThumbs, privateThumbs []string, privateThumbsURLReplacement map[string]string) (*drivers.SaveDataOutput, error) {
+func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout time.Duration, storageFallbackURLs map[string]string, segTimeout time.Duration, disableThumbs []string, thumbsURLReplacement map[string]string) (*drivers.SaveDataOutput, error) {
 	ext := filepath.Ext(outputURI.Path)
 	inputFile, err := os.CreateTemp("", "upload-*"+ext)
 	if err != nil {
@@ -78,7 +78,7 @@ func Upload(input io.Reader, outputURI *url.URL, waitBetweenWrites, writeTimeout
 			return nil, fmt.Errorf("failed to upload video %s: (%d bytes) %w", outputURI.Redacted(), bytesWritten, err)
 		}
 
-		if err = extractThumb(outputURI, inputFileName, storageFallbackURLs, disableThumbs, privateThumbs, privateThumbsURLReplacement); err != nil {
+		if err = extractThumb(outputURI, inputFileName, storageFallbackURLs, disableThumbs, thumbsURLReplacement); err != nil {
 			glog.Errorf("extracting thumbnail failed for %s: %v", outputURI.Redacted(), err)
 		}
 		return out, nil
@@ -229,28 +229,31 @@ func uploadFile(outputURI *url.URL, fileName string, fields *drivers.FilePropert
 	return out, bytesWritten, err
 }
 
-func extractThumb(outputURI *url.URL, segmentFileName string, storageFallbackURLs map[string]string, disableThumbs []string, privateThumbs []string, privateThumbsURLReplacement map[string]string) error {
+func extractThumb(outputURI *url.URL, segmentFileName string, storageFallbackURLs map[string]string, disableThumbs []string, thumbsURLReplacement map[string]string) error {
 	for _, playbackID := range disableThumbs {
 		if strings.Contains(outputURI.Path, playbackID) {
 			glog.Infof("Thumbnails disabled for %s", outputURI.Redacted())
 			return nil
 		}
 	}
-	for _, playbackID := range privateThumbs {
-		if strings.Contains(outputURI.Path, playbackID) {
-			glog.Infof("Saving thumbnail to private location for %s", outputURI.Redacted())
-			outputURIStr := outputURI.String()
-			for original, private := range privateThumbsURLReplacement {
-				if strings.HasPrefix(outputURIStr, original) {
-					newURI, err := url.Parse(strings.Replace(outputURIStr, original, private, 1))
-					if err != nil {
-						return fmt.Errorf("failed to parse thumbnail URL: %w", err)
-					}
-					outputURI = newURI
+	for playbackIDs, replacement := range thumbsURLReplacement {
+		for _, playbackID := range strings.Split(playbackIDs, " ") {
+			if strings.Contains(outputURI.Path, playbackID) {
+				outputURIStr := outputURI.String()
+				split := strings.Split(replacement, " ")
+				if len(split) != 2 {
 					break
 				}
+				original, replaceWith := split[0], split[1]
+
+				newURI, err := url.Parse(strings.Replace(outputURIStr, original, replaceWith, 1))
+				if err != nil {
+					return fmt.Errorf("failed to parse thumbnail URL: %w", err)
+				}
+				outputURI = newURI
+				glog.Infof("Replaced thumbnail location for %s", outputURI.Redacted())
+				break
 			}
-			break
 		}
 	}
 
