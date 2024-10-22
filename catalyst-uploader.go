@@ -42,6 +42,7 @@ func run() int {
 	segTimeout := fs.Duration("segment-timeout", 5*time.Minute, "Segment write timeout")
 	disableRecording := CommaSliceFlag(fs, "disable-recording", `Comma-separated list of playbackIDs to disable recording for`)
 	disableThumbs := CommaSliceFlag(fs, "disable-thumbs", `Comma-separated list of playbackIDs to disable thumbs for`)
+	thumbsURLReplacement := CommaMapFlag(fs, "thumbs-replace-urls", `Map of space separated playbackIDs to space separated URL replacement to use when saving thumbnails. E.g. playbackID1 playbackID2=oldURL newURL`)
 
 	defaultConfigFile := "/etc/livepeer/catalyst_uploader.conf"
 	if _, err := os.Stat(defaultConfigFile); os.IsNotExist(err) {
@@ -50,6 +51,7 @@ func run() int {
 	_ = fs.String("config", defaultConfigFile, "config file (optional)")
 
 	err = ff.Parse(fs, os.Args[1:],
+		ff.WithIgnoreUndefined(true),
 		ff.WithConfigFileFlag("config"),
 		ff.WithConfigFileParser(ff.PlainParser),
 		ff.WithEnvVarPrefix("CATALYST_UPLOADER"),
@@ -110,7 +112,7 @@ func run() int {
 	}
 
 	start := time.Now()
-	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout, *storageFallbackURLs, *segTimeout, *disableThumbs)
+	out, err := core.Upload(os.Stdin, uri, WaitBetweenWrites, *timeout, *storageFallbackURLs, *segTimeout, *disableThumbs, *thumbsURLReplacement)
 	if err != nil {
 		glog.Errorf("Uploader failed for %s: %s", uri.Redacted(), err)
 		return 1
