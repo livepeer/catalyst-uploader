@@ -268,7 +268,7 @@ func extractThumb(outputURI *url.URL, segmentFileName string, storageFallbackURL
 		"-i", segmentFileName,
 		"-ss", "00:00:00",
 		"-vframes", "1",
-		"-vf", "scale=640:360:force_original_aspect_ratio=decrease",
+		"-vf", "scale=426:240:force_original_aspect_ratio=decrease",
 		"-y",
 		outFile,
 	}
